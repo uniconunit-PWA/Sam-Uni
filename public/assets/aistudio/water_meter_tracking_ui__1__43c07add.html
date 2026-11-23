@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบวิเคราะห์และติดตามคำขอติดตั้ง/ย้ายมาตรวัดน้ำ (Real-time)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Sarabun -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Leaflet Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Sarabun', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #f8fafc;
+    }
+    /* ปรับแต่ง Scrollbar ของแผนที่และตาราง */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans">
+
+  <!-- นำทางด่วน / ส่วนหัว -->
+  <header class="bg-gradient-to-r from-primary-900 via-primary-800 to-primary-700 text-white shadow-lg sticky top-0 z-[1000]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="bg-white/10 p-2.5 rounded-xl border border-white/20">
+          <i class="fa-solid fa-droplet text-2xl text-cyan-300 animate-pulse"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-wide">ระบบวิเคราะห์และติดตามคำขอติดตั้ง/ย้ายมาตรวัดน้ำ</h1>
+            <span class="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold rounded-full flex items-center gap-1 animate-pulse">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Real-time Connected
+            </span>
+          </div>
+          <p class="text-xs text-primary-200 flex items-center gap-1.5 mt-0.5">
+            <i class="fa-solid fa-database text-cyan-400"></i> เชื่อมโยง Google Sheets: 
+            <a href="https://docs.google.com/spreadsheets/d/17bZyj009jyxtjWb8DsZCXkmd4DQO0UAzHPEVyvWZ8Ns/edit?usp=sharing" target="_blank" class="underline hover:text-white transition">17bZyj...vWZ8Ns</a>
+          </p>
+        </div>
+      </div>
+      
+      <!-- เมนูจัดการ สถานะแอดมิน และการซิงค์ข้อมูล -->
+      <div class="flex flex-wrap items-center gap-3">
+        <button onclick="syncDatabase()" id="manual-sync-btn" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white text-xs font-semibold rounded-lg shadow-sm transition duration-150 flex items-center gap-1.5">
+          <i class="fa-solid fa-arrows-rotate" id="sync-icon"></i>
+          <span>ซิงค์ข้อมูลตอนนี้</span>
+        </button>
+
+        <span id="admin-badge" class="hidden px-3 py-1 bg-amber-500 text-xs font-semibold rounded-full flex items-center gap-1">
+          <i class="fa-solid fa-user-shield"></i> ผู้ดูแลระบบ (Admin)
+        </span>
+        
+        <button id="auth-btn" onclick="toggleAuthModal()" class="px-4 py-2 bg-white/10 hover:bg-white/20 active:bg-white/30 border border-white/30 rounded-lg text-sm font-medium transition duration-200 flex items-center gap-2">
+          <i id="auth-icon" class="fa-solid fa-right-to-bracket"></i>
+          <span id="auth-text">ลงชื่อเข้าใช้ (แอดมิน)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- หน้าจอหลัก -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+    
+    <!-- ส่วนแสดงสถิติหลักแบบย่อ (Dashboard Cards) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
+        <div class="p-3 bg-blue-50 text-blue-600 rounded-xl"><i class="fa-solid fa-file-invoice text-2xl"></i></div>
+        <div>
+          <span class="text-sm text-slate-500 block">คำขอทั้งหมด</span>
+          <span id="stat-total" class="text-2xl font-bold text-slate-800">0</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
+        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><i class="fa-solid fa-circle-check text-2xl"></i></div>
+        <div>
+          <span class="text-sm text-slate-500 block">ติดตั้งเสร็จสิ้น</span>
+          <span id="stat-done" class="text-2xl font-bold text-slate-800">0</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
+        <div class="p-3 bg-amber-50 text-amber-600 rounded-xl"><i class="fa-solid fa-hourglass-half text-2xl"></i></div>
+        <div>
+          <span class="text-sm text-slate-500 block">อยู่ระหว่างดำเนินการ</span>
+          <span id="stat-pending" class="text-2xl font-bold text-slate-800">0</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
+        <div class="p-3 bg-rose-50 text-rose-600 rounded-xl"><i class="fa-solid fa-triangle-exclamation text-2xl"></i></div>
+        <div>
+          <span class="text-sm text-slate-500 block">รอชำระเงิน</span>
+          <span id="stat-unpaid" class="text-2xl font-bold text-slate-800">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ส่วนควบคุม ตัวกรองข้อมูล -->
+    <section class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+      <h2 class="text-md font-semibold text-slate-700 mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-filter text-primary-500"></i> ตัวกรองข้อมูลสำหรับการติดตามพิกัดและข้อมูลเชิงสถิติ
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">สถานะการชำระเงิน</label>
+          <select id="filter-status" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary-500 outline-none">
+            <option value="">ทั้งหมด</option>
+            <option value="รอชำระเงิน">รอชำระเงิน</option>
+            <option value="อยู่ระหว่างติดตั้ง">อยู่ระหว่างติดตั้ง</option>
+            <option value="ติดตั้งเสร็จสิ้น">ติดตั้งเสร็จสิ้น</option>
+            <option value="ไม่มีเส้นท่อ/ยกเลิก">ไม่มีเส้นท่อ/ยกเลิก</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">พื้นที่ (ตำบล-อำเภอ-จังหวัด)</label>
+          <select id="filter-location" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-primary-500 outline-none">
+            <option value="">ทั้งหมด</option>
+            <option value="ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร">ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร</option>
+            <option value="ต.แสนตอ อ.ขาณุวรลักษบุรี จ.กำแพงเพชร">ต.แสนตอ อ.ขาณุวรลักษบุรี จ.กำแพงเพชร</option>
+            <option value="ต.ป่าพุทรา อ.ขาณุวรลักษบุรี จ.กำแพงเพชร">ต.ป่าพุทรา อ.ขาณุวรลักษบุรี จ.กำแพงเพชร</option>
+            <option value="ต.ยางสูง อ.ขาณุวรลักษบุรี จ.กำแพงเพชร">ต.ยางสูง อ.ขาณุวรลักษบุรี จ.กำแพงเพชร</option>
+            <option value="ต.ท่าพุทรา อ.คลองขลุง จ.กำแพงเพชร">ต.ท่าพุทรา อ.คลองขลุง จ.กำแพงเพชร</option>
+            <option value="ต.ท่ามะเขือ อ.คลองขลุง จ.กำแพงเพชร">ต.ท่ามะเขือ อ.คลองขลุง จ.กำแพงเพชร</option>
+            <option value="ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร">ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร</option>
+            <option value="ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านถนนงาม)">ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านถนนงาม)</option>
+            <option value="ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านโค้งวิไล)">ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านโค้งวิไล)</option>
+            <option value="ต.บางแก้ว อ.บรรพตพิสัย จ.นครสวรรค์">ต.บางแก้ว อ.บรรพตพิสัย จ.นครสวรรค์</option>
+            <option value="ต.บ้านแดน อ.บรรพตพิสัย จ.นครสวรรค์">ต.บ้านแดน อ.บรรพตพิสัย จ.นครสวรรค์</option>
+            <option value="ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร (บ้านโนนปอแดง)">ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร (บ้านโนนปอแดง)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">เดือน / ปี (วันที่ติดตั้ง)</label>
+          <input type="month" id="filter-date" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-primary-500 outline-none">
+        </div>
+        <div class="flex items-end">
+          <button onclick="resetFilters()" class="w-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-medium py-2 px-4 rounded-lg text-sm transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-rotate-left"></i> ล้างตัวกรองทั้งหมด
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- พื้นที่แผนที่หลักและการวิเคราะห์ข้อมูล (Map & Chart Grid) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- แผนที่พิกัดคำขอติดตั้ง -->
+      <section class="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[550px]">
+        <div class="bg-gradient-to-r from-primary-800 to-primary-700 text-white px-5 py-3 flex justify-between items-center">
+          <h2 class="font-bold flex items-center gap-2">
+            <i class="fa-solid fa-map-location-dot text-cyan-300"></i> แผนที่ตำแหน่งมาตรวัดน้ำทั้งหมดในระบบ
+          </h2>
+          <span class="text-xs bg-emerald-500 text-white px-2.5 py-1 rounded-full flex items-center gap-1 font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span> Realtime Syncing
+          </span>
+        </div>
+        <div id="main-map" class="w-full flex-grow z-10"></div>
+        <div class="bg-slate-50 border-t border-slate-100 px-4 py-2 text-xs flex justify-wrap gap-4 items-center">
+          <span class="font-semibold text-slate-500">สัญลักษณ์สีหมุด:</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>รอชำระเงิน</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>อยู่ระหว่างติดตั้ง</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>ติดตั้งเสร็จสิ้น</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-slate-500 inline-block"></span>ไม่มีเส้นท่อ/ยกเลิก</span>
+        </div>
+      </section>
+
+      <!-- ส่วนจัดการคำขอและวิเคราะห์ข้อมูล -->
+      <section class="flex flex-col gap-6">
+        
+        <!-- แบบฟอร์มเพิ่ม/แก้ไขคำขอ -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          <div class="bg-gradient-to-r from-primary-800 to-primary-700 text-white px-5 py-3 flex justify-between items-center">
+            <h2 id="form-title" class="font-bold flex items-center gap-2">
+              <i class="fa-solid fa-file-signature text-cyan-300"></i> บันทึกคำขอใหม่
+            </h2>
+            <button id="cancel-edit-btn" onclick="resetForm()" class="hidden text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded">ยกเลิกแก้ไข</button>
+          </div>
+          <form id="record-form" onsubmit="handleFormSubmit(event)" class="p-5 flex flex-col gap-3 max-h-[490px] overflow-y-auto">
+            <input type="hidden" id="form-row-index" value="">
+            
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">วันที่ต้องการ</label>
+                <input type="date" id="input-date" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">เลขที่งาน</label>
+                <input type="text" id="input-job-id" required placeholder="พิมพ์ข้อความ" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อ - สกุล ผู้ยื่นคำขอ</label>
+              <input type="text" id="input-full-name" required placeholder="พิมพ์ข้อความ" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">บ้านเลขที่</label>
+                <input type="text" id="input-house-no" required placeholder="พิมพ์ข้อความ" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">หมู่ที่</label>
+                <select id="input-moo" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+                  <option value="">เลือกหมู่ที่ (1-20)</option>
+                  <!-- สร้างหมู่ 1-20 อัตโนมัติด้วย JS -->
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">ตำบล-อำเภอ-จังหวัด</label>
+              <select id="input-location-info" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="">เลือกตำบล-อำเภอ-จังหวัด</option>
+                <option value="ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร">ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร</option>
+                <option value="ต.แสนตอ อ.ขาณุวรลักษบุรี จ.กำแพงเพชร">ต.แสนตอ อ.ขาณุวรลักษบุรี จ.กำแพงเพชร</option>
+                <option value="ต.ป่าพุทรา อ.ขาณุวรลักษบุรี จ.กำแพงเพชร">ต.ป่าพุทรา อ.ขาณุวรลักษบุรี จ.กำแพงเพชร</option>
+                <option value="ต.ยางสูง อ.ขาณุวรลักษบุรี จ.กำแพงเพชร">ต.ยางสูง อ.ขาณุวรลักษบุรี จ.กำแพงเพชร</option>
+                <option value="ต.ท่าพุทรา อ.คลองขลุง จ.กำแพงเพชร">ต.ท่าพุทรา อ.คลองขลุง จ.กำแพงเพชร</option>
+                <option value="ต.ท่ามะเขือ อ.คลองขลุง จ.กำแพงเพชร">ต.ท่ามะเขือ อ.คลองขลุง จ.กำแพงเพชร</option>
+                <option value="ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร">ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร</option>
+                <option value="ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านถนนงาม)">ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านถนนงาม)</option>
+                <option value="ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านโค้งวิไล)">ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านโค้งวิไล)</option>
+                <option value="ต.บางแก้ว อ.บรรพตพิสัย จ.นครสวรรค์">ต.บางแก้ว อ.บรรพตพิสัย จ.นครสวรรค์</option>
+                <option value="ต.บ้านแดน อ.บรรพตพิสัย จ.นครสวรรค์">ต.บ้านแดน อ.บรรพตพิสัย จ.นครสวรรค์</option>
+                <option value="ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร (บ้านโนนปอแดง)">ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร (บ้านโนนปอแดง)</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">เบอร์โทร</label>
+                <input type="text" id="input-phone" required placeholder="พิมพ์เบอร์โทร" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">ยอดชำระ (บาท)</label>
+                <input type="number" step="0.01" id="input-payment-amount" required placeholder="ยอดชำระเงิน" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Latitude</label>
+                <input type="number" step="any" id="input-lat" required readonly placeholder="คลิกแผนที่เพื่อเลือก" class="w-full bg-slate-100 border border-slate-200 rounded-lg py-1.5 px-3 text-xs outline-none cursor-not-allowed">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Longitude</label>
+                <input type="number" step="any" id="input-lng" required readonly placeholder="คลิกแผนที่เพื่อเลือก" class="w-full bg-slate-100 border border-slate-200 rounded-lg py-1.5 px-3 text-xs outline-none cursor-not-allowed">
+              </div>
+            </div>
+            
+            <p class="text-[10px] text-slate-400 -mt-2"><i class="fa-solid fa-circle-info"></i> กรุณาคลิกเลือกจุดติดตั้งบน <strong>แผนที่หลัก</strong> เพื่อดึงข้อมูล Latitude/Longitude โดยอัตโนมัติ</p>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">สถานะการชำระเงิน</label>
+              <select id="input-status" required class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="รอชำระเงิน">รอชำระเงิน</option>
+                <option value="อยู่ระหว่างติดตั้ง">อยู่ระหว่างติดตั้ง</option>
+                <option value="ติดตั้งเสร็จสิ้น">ติดตั้งเสร็จสิ้น</option>
+                <option value="ไม่มีเส้นท่อ/ยกเลิก">ไม่มีเส้นท่อ/ยกเลิก</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">หมายเหตุ</label>
+              <textarea id="input-note" placeholder="ข้อมูลเพิ่มเติม..." class="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500 h-16 resize-none"></textarea>
+            </div>
+
+            <button type="submit" id="submit-btn" class="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-semibold py-2.5 px-4 rounded-xl text-sm shadow-md hover:shadow-lg transition duration-150 flex items-center justify-center gap-2 mt-2">
+              <i class="fa-solid fa-cloud-arrow-up"></i> <span id="submit-btn-text">บันทึกข้อมูลคำขอ</span>
+            </button>
+          </form>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- แผนภาพเชิงวิเคราะห์ข้อมูลการติดตั้งมาตรวัดน้ำ (Charts Analytics) -->
+    <section class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-chart-pie text-emerald-500"></i> สัดส่วนความคืบหน้าและการชำระเงิน
+        </h3>
+        <div class="h-64 flex justify-center items-center">
+          <canvas id="status-pie-chart"></canvas>
+        </div>
+      </div>
+      <div>
+        <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-chart-bar text-primary-500"></i> ปริมาณงานแยกตามตำบล/พื้นที่
+        </h3>
+        <div class="h-64 flex justify-center items-center">
+          <canvas id="area-bar-chart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ส่วนตารางแสดงข้อมูลอย่างละเอียด -->
+    <section class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div class="bg-gradient-to-r from-primary-800 to-primary-700 text-white px-5 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h2 class="font-bold flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-cyan-300"></i> รายการคำขอทั้งหมด
+        </h2>
+        
+        <!-- แถบค้นหาอย่างรวดเร็ว -->
+        <div class="relative w-full sm:w-72">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+          </span>
+          <input type="text" id="table-search" oninput="applyFilters()" placeholder="ค้นหาตามชื่อ, เลขงาน, เบอร์..." class="w-full bg-white/10 hover:bg-white/20 text-white placeholder-white/60 text-sm border border-white/20 rounded-xl py-2 pl-10 pr-4 outline-none focus:bg-white focus:text-slate-800 focus:placeholder-slate-400 transition duration-200">
+        </div>
+      </div>
+
+      <!-- พื้นที่แสดงตารางข้อมูล -->
+      <div class="overflow-x-auto w-full max-h-[500px]">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-semibold tracking-wider">
+              <th class="py-3.5 px-4">วันที่</th>
+              <th class="py-3.5 px-4">เลขที่งาน</th>
+              <th class="py-3.5 px-4">ชื่อ-สกุล</th>
+              <th class="py-3.5 px-4">ที่อยู่ (บ้านเลขที่/หมู่ที่/พื้นที่)</th>
+              <th class="py-3.5 px-4">เบอร์โทร</th>
+              <th class="py-3.5 px-4 text-right">ยอดชำระ (บาท)</th>
+              <th class="py-3.5 px-4 text-center">สถานะ</th>
+              <th class="py-3.5 px-4">พิกัด (Lat, Lng)</th>
+              <th class="py-3.5 px-4 text-center admin-action-cell hidden">การจัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700 text-sm">
+            <!-- ข้อมูลจาก Google Sheet จะมาแสดงที่นี่ -->
+            <tr>
+              <td colspan="9" class="py-10 text-center text-slate-400">
+                <i class="fa-solid fa-spinner animate-spin text-2xl text-primary-500 mb-2"></i>
+                <p>กำลังโหลดและเชื่อมต่อกับข้อมูลในระบบ...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="bg-slate-900 text-slate-400 border-t border-slate-800 py-6 text-center text-xs">
+    <div class="max-w-7xl mx-auto px-4">
+      <p class="font-medium text-slate-300">© 2026 ระบบวิเคราะห์และติดตามคำขอติดตั้ง/ย้ายมาตรวัดน้ำ</p>
+      <p class="mt-1 text-slate-500">ขับเคลื่อนโดยระบบภูมิสารสนเทศพิกัดแผนที่ (Leaflet.js) เชื่อมต่อตรงกับฐานข้อมูล Google Sheets</p>
+    </div>
+  </footer>
+
+  <!-- ==================== MODALS / DIALOGS ==================== -->
+
+  <!-- Modal สำหรับ Login (Admin) -->
+  <div id="auth-modal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden transform transition duration-300">
+      <div class="bg-gradient-to-r from-primary-800 to-primary-700 text-white px-6 py-4 flex justify-between items-center">
+        <h3 class="font-bold flex items-center gap-2"><i class="fa-solid fa-user-shield"></i> ลงชื่อเข้าใช้งานระบบหลังบ้าน</h3>
+        <button onclick="toggleAuthModal()" class="text-white/80 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form id="login-form" onsubmit="handleLogin(event)" class="p-6 flex flex-col gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Username (ชื่อผู้ใช้)</label>
+          <input type="text" id="login-user" required placeholder="ระบุผู้ใช้งาน" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Password (รหัสผ่าน)</label>
+          <input type="password" id="login-pass" required placeholder="ระบุรหัสผ่าน" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+        </div>
+        <div id="login-error" class="hidden text-rose-500 text-xs font-semibold text-center mt-1"></div>
+        <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-bold py-2 px-4 rounded-xl text-sm transition">
+          เข้าสู่ระบบ (แอดมิน)
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- กล่องแจ้งเตือนความคืบหน้า (Custom Toast Notifications) -->
+  <div id="toast" class="hidden fixed bottom-5 right-5 z-[3000] bg-slate-900 text-white text-sm px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-opacity duration-300">
+    <i id="toast-icon" class="fa-solid text-xl text-cyan-400"></i>
+    <span id="toast-message">ข้อความแจ้งเตือน</span>
+  </div>
+
+  <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+  <script>
+    // 1. ตัวแปรและข้อมูลเริ่มต้น
+    let records = [];
+    let filteredRecords = [];
+    let isAdmin = false;
+    let editingRowIndex = null;
+    let mainMap, selectionMarker;
+    let mapMarkersGroup;
+    let pieChartInstance, barChartInstance;
+    
+    // ตั้งค่าลิงก์ Google Sheets สำหรับโหลดข้อมูลพิกัด (CORS-friendly CSV Export URL)
+    const SPREADSHEET_ID = '17bZyj009jyxtjWb8DsZCXkmd4DQO0UAzHPEVyvWZ8Ns';
+    const CSV_DATABASE_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
+
+    // ตัวเลือกหมู่อัตโนมัติ (1 - 20)
+    const selectMoo = document.getElementById('input-moo');
+    for (let i = 1; i <= 20; i++) {
+      let opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `หมู่ที่ ${i}`;
+      selectMoo.appendChild(opt);
+    }
+
+    // ตัวอย่างฐานข้อมูลแบบออฟไลน์สำหรับ fallback กรณีการดึงชีทหลักขัดข้องชั่วคราว
+    const sampleMockData = [
+      { rowIndex: 2, วันที่: "2026-07-01", เลขที่งาน: "JOB-1001", "ชื่อ-สกุล": "สมชาย สลักทอง", บ้านเลขที่: "123/4", หมู่ที่: "3", "ตำบล-อำเภอ-จังหวัด": "ต.สลกบาตร อ.ขาณุวรลักษบุรี จ.กำแพงเพชร", เบอร์โทร: "0812345678", ยอดชำระ: 1200, สถานะการชำระเงิน: "ติดตั้งเสร็จสิ้น", latitude: 16.0125, longitude: 99.8052, หมายเหตุ: "ติดตั้งบริเวณรั้วบ้านด้านขวา" },
+      { rowIndex: 3, วันที่: "2026-07-03", เลขที่งาน: "JOB-1002", "ชื่อ-สกุล": "สมใจ ไชยสี", บ้านเลขที่: "55", หมู่ที่: "12", "ตำบล-อำเภอ-จังหวัด": "ต.คลองขลุง อ.คลองขลุง จ.กำแพงเพชร (บ้านถนนงาม)", เบอร์โทร: "0898765432", ยอดชำระ: 1500, สถานะการชำระเงิน: "อยู่ระหว่างติดตั้ง", latitude: 16.2045, longitude: 99.7123, หมายเหตุ: "รอวัสดุขุดเจาะเจิมถนน" },
+      { rowIndex: 4, วันที่: "2026-07-10", เลขที่งาน: "JOB-1003", "ชื่อ-สกุล": "บุญส่ง พัดโบก", บ้านเลขที่: "88/1", หมู่ที่: "5", "ตำบล-อำเภอ-จังหวัด": "ต.บางแก้ว อ.บรรพตพิสัย จ.นครสวรรค์", เบอร์โทร: "0855551122", ยอดชำระ: 0, สถานะการชำระเงิน: "รอชำระเงิน", latitude: 15.9521, longitude: 99.8876, หมายเหตุ: "ส่งใบแจ้งหนี้ให้เจ้าตัวแล้ว" },
+      { rowIndex: 5, วันที่: "2026-07-12", เลขที่งาน: "JOB-1004", "ชื่อ-สกุล": "วันดี สีทอง", บ้านเลขที่: "12", หมู่ที่: "1", "ตำบล-อำเภอ-จังหวัด": "ต.ยางสูง อ.ขาณุวรลักษบุรี จ.กำแพงเพชร", เบอร์โทร: "0844443333", ยอดชำระ: 1100, สถานะการชำระเงิน: "ไม่มีเส้นท่อ/ยกเลิก", latitude: 16.0355, longitude: 99.7891, หมายเหตุ: "ไม่มีท่อประปาหลักผ่าน" }
+    ];
+
+    // ตรวจจับระบบปฏิบัติการว่าเป็น Web App จาก Google Apps Script หรือไม่
+    const isGoogleAppsScript = (typeof google !== 'undefined' && google.script && google.script.run);
+
+    // ทำการโหลดฟังก์ชันหลักทั้งหมดเมื่อเปิดหน้าระบบ
+    window.onload = function() {
+      initMap();
+      initCharts();
+      fetchDatabase();
+
+      // สั่ง Auto Sync อัปเดตข้อมูลแบบ Real-time ทุก 30 วินาที
+      setInterval(() => {
+        syncDatabase(true); // silent sync ในเบื้องหลัง
+      }, 30000);
+    }
+
+    // 2. การจัดการแผนที่แบบโต้ตอบ (Interactive Map)
+    function initMap() {
+      // เซ็ตตำแหน่งศูนย์กลางหลักไปที่พิกัด จังหวัดกำแพงเพชร (อ.ขาณุวรลักษบุรี / คลองขลุง)
+      mainMap = L.map('main-map').setView([16.0500, 99.8000], 11);
+      
+      // ดึงแผนที่ OpenStreetMap แบบเรียบง่ายและสวยงาม
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(mainMap);
+
+      mapMarkersGroup = L.layerGroup().addTo(mainMap);
+
+      // เหตุการณ์ผู้ใช้คลิกเลือกพิกัดในแผนที่
+      mainMap.on('click', function(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        
+        // กำหนดพิกัดลงใน Input ของฟอร์มบันทึกข้อมูล
+        document.getElementById('input-lat').value = lat.toFixed(6);
+        document.getElementById('input-lng').value = lng.toFixed(6);
+
+        // ย้ายหมุดระบุตำแหน่งปัจจุบัน
+        if (selectionMarker) {
+          selectionMarker.setLatLng(e.latlng);
+        } else {
+          selectionMarker = L.marker(e.latlng, { 
+            draggable: true,
+            icon: L.icon({
+              iconUrl: 'https://cdn-icons-png.flaticon.com/512/5693/5693831.png', // หมุดหยดน้ำสีน้ำเงิน
+              iconSize: [38, 38],
+              iconAnchor: [19, 38]
+            })
+          }).addTo(mainMap);
+          
+          selectionMarker.on('dragend', function(event) {
+            const m = event.target;
+            const position = m.getLatLng();
+            document.getElementById('input-lat').value = position.lat.toFixed(6);
+            document.getElementById('input-lng').value = position.lng.toFixed(6);
+          });
+        }
+        
+        showToast("พิกัดแผนที่ได้รับการอัปเดต", "fa-map-pin");
+      });
+    }
+
+    // ฟังก์ชันสีสำหรับใช้แยกแยะสถานะการติดตั้งในแผนที่
+    function getStatusColor(status) {
+      switch(status) {
+        case 'ติดตั้งเสร็จสิ้น': return '#10b981'; // เขียว
+        case 'อยู่ระหว่างติดตั้ง': return '#f59e0b'; // ส้ม
+        case 'รอชำระเงิน': return '#f43f5e'; // แดง
+        case 'ไม่มีเส้นท่อ/ยกเลิก': return '#64748b'; // เทา
+        default: return '#3b82f6';
+      }
+    }
+
+    // แปลงรหัสสีแบบ HEX เป็นแบบ Leaflet Circle Marker เพื่อแสดงจุดที่สวยงาม
+    function plotMarkersOnMap() {
+      mapMarkersGroup.clearLayers();
+
+      filteredRecords.forEach(rec => {
+        const lat = Number(rec.latitude);
+        const lng = Number(rec.longitude);
+        
+        if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+          const color = getStatusColor(rec['สถานะการชำระเงิน']);
+          
+          // สร้างไอคอนที่มีสีสันเด่นชัดและกลมกลืน
+          const marker = L.circleMarker([lat, lng], {
+            radius: 8,
+            fillColor: color,
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.95
+          });
+
+          // ส่วนแสดงรายละเอียดข้อมูลเมื่อคลิกบนจุดของแผนที่ (Popup)
+          const popupContent = `
+            <div class="p-1 font-sans text-xs flex flex-col gap-1">
+              <strong class="text-sm text-primary-900 border-b pb-1 mb-1 block">${rec['ชื่อ-สกุล']}</strong>
+              <div><strong>เลขที่งาน:</strong> ${rec['เลขที่งาน'] || rec['เลขที่คำขอ'] || '-'}</div>
+              <div><strong>ที่อยู่:</strong> บ้านเลขที่ ${rec['บ้านเลขที่'] || '-'} หมู่ ${rec['หมู่ที่'] || '-'}</div>
+              <div><strong>ตำบล/อำเภอ:</strong> <span class="text-blue-600 font-semibold">${rec['ตำบล-อำเภอ-จังหวัด'] || '-'}</span></div>
+              <div><strong>เบอร์โทร:</strong> ${rec['เบอร์โทร'] || '-'}</div>
+              <div><strong>ยอดชำระ:</strong> <span class="text-slate-800 font-bold">${Number(rec['ยอดชำระ']).toLocaleString()} บาท</span></div>
+              <div class="mt-1">
+                <strong>สถานะ:</strong> 
+                <span class="px-2 py-0.5 rounded text-white text-[10px]" style="background-color: ${color}">
+                  ${rec['สถานะการชำระเงิน'] || '-'}
+                </span>
+              </div>
+              ${rec['หมายเหตุ'] ? `<div class="mt-1 bg-slate-50 p-1 rounded italic text-slate-500">หมายเหตุ: ${rec['หมายเหตุ']}</div>` : ''}
+              ${isAdmin ? `<button onclick="editFromMap(${rec.rowIndex})" class="mt-2 w-full text-center bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white rounded py-1 px-2 font-medium">แก้ไขคำขอ</button>` : ''}
+            </div>
+          `;
+
+          marker.bindPopup(popupContent);
+          mapMarkersGroup.addLayer(marker);
+        }
+      });
+    }
+
+    // ฟังก์ชันสำหรับดาวน์โหลดและแกะ CSV จาก Google Sheets
+    async function fetchDatabase() {
+      const syncIcon = document.getElementById('sync-icon');
+      if (syncIcon) syncIcon.classList.add('fa-spin');
+      showToast("กำลังเชื่อมต่อ Google Sheets แบบ Real-time...", "fa-arrows-rotate animate-spin");
+
+      // หากรันในฐานะ Google Apps Script Web App ให้ดึงข้อมูลผ่านหลังบ้านก่อน
+      if (isGoogleAppsScript) {
+        google.script.run
+          .withSuccessHandler(function(data) {
+            records = data;
+            filteredRecords = [...records];
+            updateSystemDashboard();
+            if (syncIcon) syncIcon.classList.remove('fa-spin');
+            showToast("อัปเดตข้อมูลล่าสุดสำเร็จ", "fa-cloud-arrow-down");
+          })
+          .withFailureHandler(function(err) {
+            console.error("Apps Script Error:", err);
+            // ดึงข้อมูลผ่าน Direct HTTP ด่านล่างแทน
+            fetchDirectFromGoogleSheets(syncIcon);
+          })
+          .getData();
+      } else {
+        // หากอยู่นอก Apps Script ให้ดึงตรงจาก CSV Link ของ Google Sheets ได้เลยทันที
+        await fetchDirectFromGoogleSheets(syncIcon);
+      }
+    }
+
+    // ซิงค์ข้อมูลด่วนแบบ Real-time
+    async function syncDatabase(isSilent = false) {
+      const syncIcon = document.getElementById('sync-icon');
+      if (syncIcon) syncIcon.classList.add('fa-spin');
+      if (!isSilent) showToast("กำลังดึงพิกัดล่าสุดแบบเรียลไทม์...", "fa-arrows-rotate animate-spin");
+      
+      await fetchDirectFromGoogleSheets(syncIcon, isSilent);
+    }
+
+    // ดึงข้อมูลตรงจาก Google Sheets เผยแพร่ภายนอก
+    async function fetchDirectFromGoogleSheets(syncIcon, isSilent = false) {
+      try {
+        const response = await fetch(CSV_DATABASE_URL + '&cache_buster=' + Date.now());
+        if (!response.ok) throw new Error('Network response was not ok');
+        const csvText = await response.text();
+        const parsedData = parseCSVToJSON(csvText);
+        
+        if (parsedData && parsedData.length > 0) {
+          records = parsedData;
+          filteredRecords = [...records];
+          updateSystemDashboard();
+          if (!isSilent) showToast("ดึงข้อมูลชีทแบบ Real-time เรียบร้อย", "fa-circle-check");
+        } else {
+          throw new Error('No data parsed');
+        }
+      } catch (err) {
+        console.warn("Direct CSV Fetch failed, using fallback:", err);
+        if (!isSilent) showToast("การดึงข้อมูล Google Sheet ขัดข้อง กำลังใช้ข้อมูลชุดสำรอง", "fa-triangle-exclamation");
+        loadFallbackMockData();
+      } finally {
+        if (syncIcon) syncIcon.classList.remove('fa-spin');
+      }
+    }
+
+    // ฟังก์ชันแปลงข้อมูล CSV เป็น JSON (สามารถอ่านอักขระพิเศษและ comma ในฟิลด์ตำบลจังหวัดได้)
+    function parseCSVToJSON(csvText) {
+      let lines = [];
+      let row = [""];
+      let inQuotes = false;
+
+      for (let i = 0; i < csvText.length; i++) {
+        let c = csvText[i];
+        let next = csvText[i+1];
+        if (c === '"') {
+          if (inQuotes && next === '"') {
+            row[row.length - 1] += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (c === ',' && !inQuotes) {
+          row.push('');
+        } else if ((c === '\r' || c === '\n') && !inQuotes) {
+          if (c === '\r' && next === '\n') { i++; }
+          lines.push(row);
+          row = [''];
+        } else {
+          row[row.length - 1] += c;
+        }
+      }
+      if (row.length > 1 || row[0] !== '') {
+        lines.push(row);
+      }
+
+      if (lines.length < 2) return [];
+
+      // ดึงหัวตารางและจัดระเบียบตัวพิมพ์ใหญ่/เล็ก
+      const rawHeaders = lines[0].map(h => h.trim());
+      const recordsList = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const rowCells = lines[i];
+        if (rowCells.length < rawHeaders.length || !rowCells[0]) continue;
+        
+        const item = { rowIndex: i + 1 }; // สอดคล้องกับแถวจริงใน Sheet (แถวแรกเป็น Header = 1)
+        
+        rawHeaders.forEach((header, colIdx) => {
+          let cellValue = rowCells[colIdx] ? rowCells[colIdx].trim() : '';
+          item[header] = cellValue;
+        });
+
+        // แมปชื่อหัวตารางให้ตรงกับสคริปต์ Dashboard
+        // ตรวจสอบและแปลงชนิดข้อมูล
+        item['วันที่'] = item['วันที่'] || item['Date'] || '';
+        item['เลขที่งาน'] = item['เลขที่งาน'] || item['เลขที่คำขอ'] || item['เลขงาน'] || item['Job ID'] || '';
+        item['ชื่อ-สกุล'] = item['ชื่อ-สกุล'] || item['ชื่อสกุล'] || item['ชื่อ'] || item['Full Name'] || '';
+        item['บ้านเลขที่'] = item['บ้านเลขที่'] || item['ที่อยู่'] || item['House No'] || '';
+        item['หมู่ที่'] = item['หมู่ที่'] || item['Moo'] || '';
+        item['ตำบล-อำเภอ-จังหวัด'] = item['ตำบล-อำเภอ-จังหวัด'] || item['พื้นที่'] || item['Location Info'] || '';
+        item['เบอร์โทร'] = item['เบอร์โทร'] || item['เบอร์ติดต่อ'] || item['Phone'] || '';
+        
+        // ยอดชำระเงิน
+        const parsedPayment = (item['ยอดชำระ'] || item['ยอดชำระเงิน'] || item['Amount'] || '0').replace(/,/g, '');
+        item['ยอดชำระ'] = parseFloat(parsedPayment) || 0;
+
+        // พิกัดภูมิศาสตร์
+        const rawLat = item['latitude'] || item['Latitude'] || item['Lat'] || '';
+        const rawLng = item['longitude'] || item['Longitude'] || item['Lng'] || '';
+        item['latitude'] = parseFloat(rawLat) || null;
+        item['longitude'] = parseFloat(rawLng) || null;
+
+        // สถานะการติดตั้ง
+        item['สถานะการชำระเงิน'] = item['สถานะการชำระเงิน'] || item['สถานะ'] || item['Status'] || 'รอชำระเงิน';
+        item['หมายเหตุ'] = item['หมายเหตุ'] || item['Note'] || '';
+
+        recordsList.push(item);
+      }
+
+      return recordsList;
+    }
+
+    function loadFallbackMockData() {
+      records = [...sampleMockData];
+      filteredRecords = [...records];
+      updateSystemDashboard();
+    }
+
+    // 4. การวิเคราะห์ข้อมูลและสร้างกราฟ (Data Visualization & Statistics)
+    function initCharts() {
+      // 4.1 กราฟวงกลมแยกแยะตามสถานะการทำงาน
+      const ctxPie = document.getElementById('status-pie-chart').getContext('2d');
+      pieChartInstance = new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+          labels: ['รอชำระเงิน', 'อยู่ระหว่างติดตั้ง', 'ติดตั้งเสร็จสิ้น', 'ไม่มีเส้นท่อ/ยกเลิก'],
+          datasets: [{
+            data: [0, 0, 0, 0],
+            backgroundColor: ['#f43f5e', '#f59e0b', '#10b981', '#64748b'],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { family: 'Sarabun' } } }
+          }
+        }
+      });
+
+      // 4.2 กราฟแท่งเปรียบเทียบปริมาณงานรายพื้นที่
+      const ctxBar = document.getElementById('area-bar-chart').getContext('2d');
+      barChartInstance = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'จำนวนคำขอ (รายการ)',
+            data: [],
+            backgroundColor: '#0284c7',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { font: { family: 'Sarabun' } } },
+            x: { ticks: { font: { family: 'Sarabun', size: 10 } } }
+          }
+        }
+      });
+    }
+
+    function updateCharts() {
+      if (!pieChartInstance || !barChartInstance) return;
+
+      // นับจำนวนตามสถานะ
+      const statusCounts = { 'รอชำระเงิน': 0, 'อยู่ระหว่างติดตั้ง': 0, 'ติดตั้งเสร็จสิ้น': 0, 'ไม่มีเส้นท่อ/ยกเลิก': 0 };
+      filteredRecords.forEach(r => {
+        const s = r['สถานะการชำระเงิน'];
+        if (statusCounts[s] !== undefined) statusCounts[s]++;
+      });
+
+      // อัปเดตกราฟวงกลม
+      pieChartInstance.data.datasets[0].data = [
+        statusCounts['รอชำระเงิน'],
+        statusCounts['อยู่ระหว่างติดตั้ง'],
+        statusCounts['ติดตั้งเสร็จสิ้น'],
+        statusCounts['ไม่มีเส้นท่อ/ยกเลิก']
+      ];
+      pieChartInstance.update();
+
+      // นับจำนวนตามตำบล/พื้นที่
+      const areaCounts = {};
+      filteredRecords.forEach(r => {
+        const area = r['ตำบล-อำเภอ-จังหวัด'];
+        if (area) {
+          // ดึงแค่ชื่อตำบลสั้นๆ มาจัดทำกราฟแท่ง
+          const subdistrict = area.split(' ')[0] || area;
+          areaCounts[subdistrict] = (areaCounts[subdistrict] || 0) + 1;
+        }
+      });
+
+      barChartInstance.data.labels = Object.keys(areaCounts);
+      barChartInstance.data.datasets[0].data = Object.values(areaCounts);
+      barChartInstance.update();
+    }
+
+    // 5. การอัปเดต Dashboard ส่วนสถิติและตารางข้อมูล
+    function updateSystemDashboard() {
+      plotMarkersOnMap();
+      updateCharts();
+
+      // อัปเดตสถิติคอนเทนเนอร์บนหัวการทำงาน
+      let total = filteredRecords.length;
+      let done = filteredRecords.filter(r => r['สถานะการชำระเงิน'] === 'ติดตั้งเสร็จสิ้น').length;
+      let pending = filteredRecords.filter(r => r['สถานะการชำระเงิน'] === 'อยู่ระหว่างติดตั้ง').length;
+      let unpaid = filteredRecords.filter(r => r['สถานะการชำระเงิน'] === 'รอชำระเงิน').length;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-done').textContent = done;
+      document.getElementById('stat-pending').textContent = pending;
+      document.getElementById('stat-unpaid').textContent = unpaid;
+
+      // อัปเดตตารางสรุปข้อมูล
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+
+      if (filteredRecords.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="py-8 text-center text-slate-400 font-medium">
+              <i class="fa-solid fa-circle-info text-xl mb-1 block"></i>
+              ไม่พบข้อมูลตรงตามตัวกรองและการค้นหาในขณะนี้
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filteredRecords.forEach(rec => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition duration-150 border-b border-slate-100";
+        
+        let statusBadge = '';
+        switch(rec['สถานะการชำระเงิน']) {
+          case 'ติดตั้งเสร็จสิ้น':
+            statusBadge = '<span class="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full">ติดตั้งเสร็จสิ้น</span>';
+            break;
+          case 'อยู่ระหว่างติดตั้ง':
+            statusBadge = '<span class="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full">อยู่ระหว่างติดตั้ง</span>';
+            break;
+          case 'รอชำระเงิน':
+            statusBadge = '<span class="px-2 py-1 bg-rose-100 text-rose-800 text-xs font-semibold rounded-full">รอชำระเงิน</span>';
+            break;
+          case 'ไม่มีเส้นท่อ/ยกเลิก':
+            statusBadge = '<span class="px-2 py-1 bg-slate-100 text-slate-800 text-xs font-semibold rounded-full">ไม่มีท่อ/ยกเลิก</span>';
+            break;
+        }
+
+        const dateFormatted = rec['วันที่'] ? new Date(rec['วันที่']).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+        const formattedAmount = Number(rec['ยอดชำระ']) ? Number(rec['ยอดชำระ']).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
+        const lat = Number(rec['latitude']).toFixed(5);
+        const lng = Number(rec['longitude']).toFixed(5);
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-medium whitespace-nowrap">${dateFormatted}</td>
+          <td class="py-3 px-4 font-semibold text-slate-500">${rec['เลขที่งาน'] || '-'}</td>
+          <td class="py-3 px-4 font-semibold text-slate-800">${rec['ชื่อ-สกุล'] || '-'}</td>
+          <td class="py-3 px-4">
+            <span class="block text-slate-700">${rec['บ้านเลขที่'] || '-'} หมู่ที่ ${rec['หมู่ที่'] || '-'}</span>
+            <span class="block text-xs text-slate-500 max-w-xs truncate">${rec['ตำบล-อำเภอ-จังหวัด'] || '-'}</span>
+          </td>
+          <td class="py-3 px-4 whitespace-nowrap">${rec['เบอร์โทร'] || '-'}</td>
+          <td class="py-3 px-4 text-right font-semibold text-primary-900">${formattedAmount} ฿</td>
+          <td class="py-3 px-4 text-center whitespace-nowrap">${statusBadge}</td>
+          <td class="py-3 px-4 text-xs font-mono text-slate-500 whitespace-nowrap">
+            ${lat && lng && lat !== 'NaN' ? `<span class="bg-slate-100 py-0.5 px-1.5 rounded"><i class="fa-solid fa-location-crosshairs text-blue-500"></i> ${lat}, ${lng}</span>` : '<span class="text-rose-400">ยังไม่ได้ระบุพิกัด</span>'}
+          </td>
+          <td class="py-3 px-4 text-center admin-action-cell ${isAdmin ? '' : 'hidden'} whitespace-nowrap">
+            <div class="inline-flex rounded-lg shadow-sm">
+              <button onclick="editRecord(${rec.rowIndex})" class="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white text-xs font-semibold rounded-l-lg transition flex items-center gap-1">
+                <i class="fa-solid fa-pen-to-square"></i> แก้ไข
+              </button>
+              <button onclick="deleteRecord(${rec.rowIndex})" class="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white text-xs font-semibold rounded-r-lg transition flex items-center gap-1">
+                <i class="fa-solid fa-trash-can"></i> ลบ
+              </button>
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 6. ฟังก์ชันสำหรับการนำทางและการกรองข้อมูล (Filters Section)
+    function applyFilters() {
+      const statusValue = document.getElementById('filter-status').value;
+      const locationValue = document.getElementById('filter-location').value;
+      const dateValue = document.getElementById('filter-date').value; // คืนค่าเป็น yyyy-MM
+      const searchValue = document.getElementById('table-search').value.trim().toLowerCase();
+
+      filteredRecords = records.filter(rec => {
+        // ตรวจสอบตัวกรองสถานะ
+        const matchStatus = !statusValue || rec['สถานะการชำระเงิน'] === statusValue;
+        
+        // ตรวจสอบตัวกรองสถานที่
+        const matchLocation = !locationValue || rec['ตำบล-อำเภอ-จังหวัด'] === locationValue;
+        
+        // ตรวจสอบตัวกรอง เดือน/ปี
+        let matchDate = true;
+        if (dateValue && rec['วันที่']) {
+          const recDateObj = new Date(rec['วันที่']);
+          const recYearMonth = `${recDateObj.getFullYear()}-${String(recDateObj.getMonth() + 1).padStart(2, '0')}`;
+          matchDate = (recYearMonth === dateValue);
+        }
+
+        // ค้นหาในตาราง
+        let matchSearch = true;
+        if (searchValue) {
+          const fullName = (rec['ชื่อ-สกุล'] || '').toLowerCase();
+          const jobId = (rec['เลขที่งาน'] || '').toLowerCase();
+          const phone = (rec['เบอร์โทร'] || '').toLowerCase();
+          matchSearch = fullName.includes(searchValue) || jobId.includes(searchValue) || phone.includes(searchValue);
+        }
+
+        return matchStatus && matchLocation && matchDate && matchSearch;
+      });
+
+      updateSystemDashboard();
+    }
+
+    // รีเซ็ตตัวกรองทั้งหมด
+    function resetFilters() {
+      document.getElementById('filter-status').value = '';
+      document.getElementById('filter-location').value = '';
+      document.getElementById('filter-date').value = '';
+      document.getElementById('table-search').value = '';
+      filteredRecords = [...records];
+      updateSystemDashboard();
+      showToast("ล้างตัวกรองและรีเซ็ตข้อมูลแล้ว", "fa-rotate-left");
+    }
+
+    // 7. ระบบการจัดการข้อมูล (เพิ่ม/แก้ไข/ลบ ข้อมูล)
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      
+      const rIdx = document.getElementById('form-row-index').value;
+      const dateVal = document.getElementById('input-date').value;
+      const jobIdVal = document.getElementById('input-job-id').value;
+      const fullNameVal = document.getElementById('input-full-name').value;
+      const houseNoVal = document.getElementById('input-house-no').value;
+      const mooVal = document.getElementById('input-moo').value;
+      const locationInfoVal = document.getElementById('input-location-info').value;
+      const phoneVal = document.getElementById('input-phone').value;
+      const paymentAmountVal = document.getElementById('input-payment-amount').value;
+      const latVal = document.getElementById('input-lat').value;
+      const lngVal = document.getElementById('input-lng').value;
+      const statusVal = document.getElementById('input-status').value;
+      const noteVal = document.getElementById('input-note').value;
+
+      const recordData = {
+        date: dateVal,
+        jobId: jobIdVal,
+        fullName: fullNameVal,
+        houseNo: houseNoVal,
+        moo: mooVal,
+        locationInfo: locationInfoVal,
+        phone: phoneVal,
+        paymentAmount: Number(paymentAmountVal),
+        latitude: latVal,
+        longitude: lngVal,
+        status: statusVal,
+        note: noteVal
+      };
+
+      showToast("กำลังประมวลผลข้อมูลการทำรายการ...", "fa-arrows-rotate animate-spin");
+
+      if (rIdx) {
+        // ดำเนินการ อัปเดตข้อมูลเดิม (Update Mode)
+        if (isGoogleAppsScript) {
+          google.script.run
+            .withSuccessHandler(function(res) {
+              if (res.success) {
+                showToast("อัปเดตข้อมูลมาตรวัดน้ำสำเร็จเรียบร้อย", "fa-circle-check");
+                fetchDatabase();
+                resetForm();
+              } else {
+                showToast("พบปัญหาในการบันทึก: " + res.message, "fa-triangle-exclamation");
+              }
+            })
+            .updateData(rIdx, recordData);
+        } else {
+          // โหมดทดลองจำลองเมื่อไม่ได้ทำงานผ่าน Apps Script Server
+          const index = records.findIndex(r => r.rowIndex == rIdx);
+          if (index !== -1) {
+            records[index] = {
+              rowIndex: Number(rIdx),
+              วันที่: dateVal,
+              "เลขที่งาน": jobIdVal,
+              "ชื่อ-สกุล": fullNameVal,
+              บ้านเลขที่: houseNoVal,
+              หมู่ที่: mooVal,
+              "ตำบล-อำเภอ-จังหวัด": locationInfoVal,
+              เบอร์โทร: phoneVal,
+              ยอดชำระ: Number(paymentAmountVal),
+              latitude: Number(latVal),
+              longitude: Number(lngVal),
+              สถานะการชำระเงิน: statusVal,
+              หมายเหตุ: noteVal
+            };
+            filteredRecords = [...records];
+            updateSystemDashboard();
+            resetForm();
+            showToast("อัปเดตข้อมูล (โหมดจำลอง) สำเร็จ", "fa-circle-check");
+          }
+        }
+      } else {
+        // ดำเนินการ บันทึกข้อมูลคำขอใหม่ (Insert Mode)
+        if (isGoogleAppsScript) {
+          google.script.run
+            .withSuccessHandler(function(res) {
+              if (res.success) {
+                showToast("เพิ่มข้อมูลเข้าคิวงานเรียบร้อย", "fa-cloud-arrow-up");
+                fetchDatabase();
+                resetForm();
+              } else {
+                showToast("ผิดพลาด: " + res.message, "fa-triangle-exclamation");
+              }
+            })
+            .addData(recordData);
+        } else {
+          // โหมดจำลองข้อมูลในเครื่องคอมพิวเตอร์
+          const nextRowIndex = records.length > 0 ? Math.max(...records.map(r => r.rowIndex)) + 1 : 2;
+          const newRec = {
+            rowIndex: nextRowIndex,
+            วันที่: dateVal,
+            "เลขที่งาน": jobIdVal,
+            "ชื่อ-สกุล": fullNameVal,
+            บ้านเลขที่: houseNoVal,
+            หมู่ที่: mooVal,
+            "ตำบล-อำเภอ-จังหวัด": locationInfoVal,
+            เบอร์โทร: phoneVal,
+            ยอดชำระ: Number(paymentAmountVal),
+            latitude: Number(latVal),
+            longitude: Number(lngVal),
+            สถานะการชำระเงิน: statusVal,
+            หมายเหตุ: noteVal
+          };
+          records.push(newRec);
+          filteredRecords = [...records];
+          updateSystemDashboard();
+          resetForm();
+          showToast("เพิ่มข้อมูลคำขอใหม่ (โหมดจำลอง) เรียบร้อย", "fa-circle-check");
+        }
+      }
+    }
+
+    // เปิดโหมดแก้ไขข้อมูลจากในรายการตาราง
+    function editRecord(rowIndex) {
+      const rec = records.find(r => r.rowIndex == rowIndex);
+      if (!rec) return;
+
+      document.getElementById('form-row-index').value = rec.rowIndex;
+      document.getElementById('input-date').value = rec['วันที่'] || '';
+      document.getElementById('input-job-id').value = rec['เลขที่งาน'] || '';
+      document.getElementById('input-full-name').value = rec['ชื่อ-สกุล'] || '';
+      document.getElementById('input-house-no').value = rec['บ้านเลขที่'] || '';
+      document.getElementById('input-moo').value = rec['หมู่ที่'] || '';
+      document.getElementById('input-location-info').value = rec['ตำบล-อำเภอ-จังหวัด'] || '';
+      document.getElementById('input-phone').value = rec['เบอร์โทร'] || '';
+      document.getElementById('input-payment-amount').value = rec['ยอดชำระ'] || '';
+      document.getElementById('input-lat').value = rec['latitude'] || '';
+      document.getElementById('input-lng').value = rec['longitude'] || '';
+      document.getElementById('input-status').value = rec['สถานะการชำระเงิน'] || 'รอชำระเงิน';
+      document.getElementById('input-note').value = rec['หมายเหตุ'] || '';
+
+      // จัดตำแหน่งแผนที่ไปที่ตำแหน่งมาตรวัดน้ำเดิมที่มีการบันทึกไว้
+      if (rec['latitude'] && rec['longitude']) {
+        const latlng = [Number(rec['latitude']), Number(rec['longitude'])];
+        mainMap.setView(latlng, 15);
+        
+        if (selectionMarker) {
+          selectionMarker.setLatLng(latlng);
+        } else {
+          selectionMarker = L.marker(latlng, { 
+            draggable: true,
+            icon: L.icon({
+              iconUrl: 'https://cdn-icons-png.flaticon.com/512/5693/5693831.png',
+              iconSize: [38, 38],
+              iconAnchor: [19, 38]
+            })
+          }).addTo(mainMap);
+        }
+      }
+
+      // เปลี่ยนหัวฟอร์มเป็น 'แก้ไขข้อมูล'
+      document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-cyan-300"></i> แก้ไขข้อมูลคำขอ [แถวที่ ${rec.rowIndex}]`;
+      document.getElementById('submit-btn-text').textContent = "บันทึกแก้ไขข้อมูล";
+      document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+      // เลื่อนฟอร์มขึ้นไปให้ผู้ใช้งานเห็นได้ง่าย
+      document.getElementById('record-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ฟังก์ชันย่อยสำหรับเปิดโหมดแก้ไของแผนที่ผ่าน Popup บนแผนที่โดยตรง
+    function editFromMap(rowIndex) {
+      mainMap.closePopup();
+      editRecord(rowIndex);
+    }
+
+    // ฟังก์ชันลบข้อมูลคำขอออกจากฐานข้อมูล
+    function deleteRecord(rowIndex) {
+      if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการ ลบข้อมูล คำขอจัดทำมาตรวัดน้ำแถวที่ " + rowIndex + " นี้อย่างถาวร?")) return;
+      
+      showToast("กำลังดำเนินการลบข้อมูลคำขอ...", "fa-trash-can animate-pulse");
+
+      if (isGoogleAppsScript) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (res.success) {
+              showToast("ลบข้อมูลออกจากระบบเสร็จสิ้น", "fa-circle-check");
+              fetchDatabase();
+            } else {
+              showToast("ไม่สามารถลบข้อมูลได้: " + res.message, "fa-triangle-exclamation");
+            }
+          })
+          .deleteData(rowIndex);
+      } else {
+        // ทดสอบออฟไลน์
+        records = records.filter(r => r.rowIndex != rowIndex);
+        filteredRecords = [...records];
+        updateSystemDashboard();
+        showToast("ลบข้อมูล (โหมดจำลอง) สำเร็จ", "fa-circle-check");
+      }
+    }
+
+    // รีเซ็ตฟอร์มบันทึกข้อมูลกลับสู่สถานะว่างเปล่า (เริ่มต้นใหม่)
+    function resetForm() {
+      document.getElementById('record-form').reset();
+      document.getElementById('form-row-index').value = '';
+      
+      // เปลี่ยนชื่อฟอร์มและปุ่มกลับสู่ปกติ
+      document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-file-signature text-cyan-300"></i> บันทึกคำขอใหม่`;
+      document.getElementById('submit-btn-text').textContent = "บันทึกข้อมูลคำขอ";
+      document.getElementById('cancel-edit-btn').classList.add('hidden');
+      
+      if (selectionMarker) {
+        mainMap.removeLayer(selectionMarker);
+        selectionMarker = null;
+      }
+    }
+
+    // 8. ส่วนดูแลความปลอดภัยและแอดมินหลังบ้าน (Admin System & Security)
+    function toggleAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      modal.classList.toggle('hidden');
+      document.getElementById('login-error').classList.add('hidden');
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('login-user').value.trim();
+      const p = document.getElementById('login-pass').value.trim();
+
+      // ยืนยันสิทธิ์กับ Username: Admin / Password: 123456
+      if (u === 'Admin' && p === '123456') {
+        isAdmin = true;
+        document.getElementById('auth-btn').className = "px-4 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 border border-rose-500 rounded-lg text-sm font-medium transition duration-200 flex items-center gap-2";
+        document.getElementById('auth-icon').className = "fa-solid fa-right-from-bracket";
+        document.getElementById('auth-text').textContent = "ออกจากระบบแอดมิน";
+        document.getElementById('auth-btn').setAttribute('onclick', 'logoutAdmin()');
+        document.getElementById('admin-badge').classList.remove('hidden');
+
+        // แสดงคอลัมน์การจัดการ (ปุ่ม แก้ไข/ลบ) ในตารางย่อ
+        document.querySelectorAll('.admin-action-cell').forEach(el => el.classList.remove('hidden'));
+
+        toggleAuthModal();
+        showToast("สิทธิ์ผู้ดูแลระบบเปิดใช้งานแล้ว", "fa-user-shield");
+        updateSystemDashboard();
+      } else {
+        const err = document.getElementById('login-error');
+        err.textContent = "ชื่อผู้ใช้หรือรหัสผ่านระบบหลังบ้านไม่ถูกต้อง!";
+        err.classList.remove('hidden');
+      }
+    }
+
+    function logoutAdmin() {
+      isAdmin = false;
+      document.getElementById('auth-btn').className = "px-4 py-2 bg-white/10 hover:bg-white/20 active:bg-white/30 border border-white/30 rounded-lg text-sm font-medium transition duration-200 flex items-center gap-2";
+      document.getElementById('auth-icon').className = "fa-solid fa-right-to-bracket";
+      document.getElementById('auth-text').textContent = "ลงชื่อเข้าใช้ (แอดมิน)";
+      document.getElementById('auth-btn').setAttribute('onclick', 'toggleAuthModal()');
+      document.getElementById('admin-badge').classList.add('hidden');
+
+      // ปิดบังคอลัมน์การจัดของแอดมิน
+      document.querySelectorAll('.admin-action-cell').forEach(el => el.classList.add('hidden'));
+
+      showToast("ออกจากระบบหลังบ้านสำเร็จแล้ว", "fa-right-from-bracket");
+      updateSystemDashboard();
+      resetForm();
+    }
+
+    // 9. แสดงผลแจ้งเตือนแบบลอยบนหน้าจอ (Toast Notifications helper)
+    function showToast(message, iconClass) {
+      const toast = document.getElementById('toast');
+      const toastIcon = document.getElementById('toast-icon');
+      const toastMsg = document.getElementById('toast-message');
+
+      toastMsg.textContent = message;
+      toastIcon.className = `fa-solid ${iconClass} text-xl text-cyan-400`;
+
+      toast.classList.remove('hidden', 'opacity-0');
+      toast.classList.add('opacity-100');
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => {
+          toast.classList.add('hidden');
+        }, 300);
+      }, 3500);
+    }
+  </script>
+</body>
+</html>

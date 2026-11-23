@@ -1,0 +1,6 @@
+{
+  "name": "ระบบติดตามคำขอติดตั้ง/ย้ายมาตรวัดน้ำ (Real-time)",
+  "description": "ระบบวิเคราะห์ ติดตามพิกัดแผนที่ และเชื่อมโยงข้อมูล Google Sheets / AppSheet แบบเรียลไทม์ พร้อมระบบแจ้งเตือนการเปลี่ยนแปลงและจัดการคำขอสำหรับผู้ดูแลระบบ",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
