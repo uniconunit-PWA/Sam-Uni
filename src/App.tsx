@@ -51,6 +51,7 @@ import {
 } from './services/sheetsService';
 import {
   addOverlayRecord,
+  buildSummaryFromPayload,
   deleteOverlayRecord,
   fetchOverlayState,
   mergeSheetWithOverlay,
@@ -219,6 +220,7 @@ export default function App() {
   const [formResetTrigger, setFormResetTrigger] = useState(0);
 
   const prevRecordsRef = useRef<MeterRequest[]>([]);
+  const optimisticAdditionsRef = useRef<Array<{ record: MeterRequest; addedAt: number }>>([]);
   const hasLoadedOnceRef = useRef(false);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -368,7 +370,29 @@ export default function App() {
           (overlay.deletions || []).length;
         setPendingOverlayCount(overlayCount);
 
-        const mergedRecords = mergeSheetWithOverlay(result.records, overlay);
+        const baseMerged = mergeSheetWithOverlay(result.records, overlay);
+        const nowTs = Date.now();
+        optimisticAdditionsRef.current = optimisticAdditionsRef.current.filter((opt) => {
+          if (nowTs - opt.addedAt > 30000) return false;
+          const alreadySynced = baseMerged.some((rec) => {
+            if (opt.record.rqNumber && rec.rqNumber) {
+              return rec.rqNumber === opt.record.rqNumber;
+            }
+            return Boolean(
+              opt.record.fullName &&
+                rec.fullName === opt.record.fullName &&
+                rec.phone === opt.record.phone
+            );
+          });
+          return !alreadySynced;
+        });
+        const mergedRecords = [
+          ...optimisticAdditionsRef.current
+            .slice()
+            .sort((a, b) => b.addedAt - a.addedAt)
+            .map((opt) => opt.record),
+          ...baseMerged,
+        ];
 
         setSheetHeaders(result.headers);
         setConnectionMode(result.mode);
@@ -940,6 +964,42 @@ export default function App() {
       const hasAppsScript = Boolean(
         sheetConfig.appsScriptUrl?.trim() || isInsideGoogleAppsScript()
       );
+      const enqueueOptimisticTopRecord = (pl: MeterFormPayload) => {
+        const now = Date.now();
+        const maxRowIndex = prevRecordsRef.current.reduce(
+          (max, r) => (r.rowIndex > max ? r.rowIndex : max),
+          1
+        );
+        const uid = pl.rqNumber
+          ? `rq:${pl.rqNumber}`
+          : `optimistic:${now}:${Math.random().toString(36).slice(2, 7)}`;
+        const optRecord: MeterRequest = {
+          rowIndex: maxRowIndex + 1,
+          uid,
+          rqNumber: pl.rqNumber || '',
+          requestDate: pl.requestDate || '',
+          fullName: pl.fullName || '',
+          houseNo: pl.houseNo || '',
+          moo: pl.moo || '',
+          subdistrict: pl.subdistrict || '',
+          district: pl.district || '',
+          province: pl.province || '',
+          locationSummary: buildSummaryFromPayload(pl),
+          phone: pl.phone || '',
+          price: Number(pl.price) || 0,
+          status: pl.status || 'รับคำร้องแล้ว(รอสำรวจ)',
+          latitude: pl.latitude ?? null,
+          longitude: pl.longitude ?? null,
+          note: pl.note || '',
+          housePhotoUrl: pl.housePhotoUrl || '',
+          raw: {},
+        };
+        optimisticAdditionsRef.current = [
+          { record: optRecord, addedAt: now },
+          ...optimisticAdditionsRef.current.filter((item) => item.record.uid !== uid),
+        ];
+      };
+
       if (hasAppsScript || serviceAccountConfigured) {
         await appendSheetRecord(
           sheetConfig,
@@ -948,6 +1008,7 @@ export default function App() {
           finalPayload,
           !hasAppsScript && serviceAccountConfigured
         );
+        enqueueOptimisticTopRecord(finalPayload);
         showToast(
           photoFile
             ? 'เพิ่มคำขอใหม่และบันทึกรูปหน้าบ้านเข้า Google Drive เรียบร้อยแล้ว'
@@ -957,6 +1018,7 @@ export default function App() {
       } else if (accessToken) {
         try {
           await appendSheetRecord(sheetConfig, accessToken, sheetHeaders, finalPayload);
+          enqueueOptimisticTopRecord(finalPayload);
           showToast(
             photoFile
               ? 'เพิ่มคำขอใหม่และบันทึกรูปหน้าบ้านเข้า Google Drive เรียบร้อยแล้ว'
@@ -990,6 +1052,11 @@ export default function App() {
       setPickedCoords(null);
       setFormResetTrigger((n) => n + 1);
       await syncSheetData({ silent: true });
+      if (optimisticAdditionsRef.current.length > 0) {
+        window.setTimeout(() => {
+          syncSheetData({ silent: true });
+        }, 1800);
+      }
     } catch (err: any) {
       showToast(`บันทึกข้อมูลไม่สำเร็จ: ${err?.message || 'เกิดข้อผิดพลาด'}`, 'error');
     } finally {

@@ -318,11 +318,12 @@ export function mergeSheetWithOverlay(
   for (const add of overlay.additions || []) {
     if (deletedSet.has(add.uid)) continue;
     // Skip if already synced into the live Google Sheet
-    const alreadyInSheet = mergedSheetRecords.some(
-      (s) =>
-        (add.rqNumber && s.rqNumber && s.rqNumber === add.rqNumber) ||
-        (s.fullName === add.fullName && s.phone === add.phone && add.fullName !== '')
-    );
+    const alreadyInSheet = mergedSheetRecords.some((s) => {
+      if (add.rqNumber && s.rqNumber) {
+        return s.rqNumber === add.rqNumber;
+      }
+      return Boolean(add.fullName && s.fullName === add.fullName && s.phone === add.phone);
+    });
     if (alreadyInSheet) continue;
 
     addedEntries.push({

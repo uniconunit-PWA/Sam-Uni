@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart2,
   ChevronDown,
@@ -76,6 +76,10 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
   const [showSummaryStrip, setShowSummaryStrip] = useState(true);
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const prevTopRecordRef = useRef<{ uid: string | null; count: number }>({
+    uid: records[0]?.uid ?? null,
+    count: records.length,
+  });
 
   const availableStatuses = useMemo(() => {
     if (statusOptions && statusOptions.length > 0) {
@@ -105,6 +109,15 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
     filterContext.dateFrom,
     filterContext.dateTo,
   ]);
+
+  useEffect(() => {
+    const topUid = records[0]?.uid ?? null;
+    const prev = prevTopRecordRef.current;
+    if (topUid && topUid !== prev.uid && records.length > prev.count) {
+      setCurrentPage(1);
+    }
+    prevTopRecordRef.current = { uid: topUid, count: records.length };
+  }, [records]);
 
   const totalPages = Math.max(1, Math.ceil(records.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);

@@ -1041,7 +1041,7 @@
         document.getElementById('sheet-title-label').textContent = title;
         document.getElementById('last-sync-label').textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH') + ' (ซิงค์อัตโนมัติทุก 10 วิ)';
 
-        const nextRecords = mapRows(rows);
+        const nextRecords = mapRows(rows).sort((a, b) => b.rowIndex - a.rowIndex);
         const isFirstLoad = !hasLoadedOnce;
         if (hasLoadedOnce) {
           const diffs = detectChanges(prevRecords, nextRecords);
