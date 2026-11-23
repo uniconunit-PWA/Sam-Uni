@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { ShieldCheck, X } from 'lucide-react';
+import {
+  type AdminSessionPayload,
+  authenticateAdmin,
+} from '../services/adminAuthService';
 
-export interface AdminSessionPayload {
-  username: string;
-  token: string;
-  canManageSheetConfig: boolean;
-}
+export type { AdminSessionPayload };
 
 interface AdminLoginModalProps {
   open: boolean;
@@ -38,28 +38,19 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     setIsSubmitting(true);
     setError('');
     try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.ok || !data?.token) {
-        setError(data?.message || 'ชื่อผู้ใช้หรือรหัสผ่านผู้ดูแลระบบไม่ถูกต้อง');
+      const result = await authenticateAdmin(u, p);
+      if (result.ok === false) {
+        setError(result.message);
         return;
       }
 
       setError('');
       setUsername('');
       setPassword('');
-      onSuccess({
-        username: String(data.username || u),
-        token: String(data.token),
-        canManageSheetConfig: Boolean(data.canManageSheetConfig),
-      });
+      onSuccess(result.session);
       onClose();
     } catch {
-      setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อตรวจสอบสิทธิ์ได้');
+      setError('ไม่สามารถตรวจสอบสิทธิ์ผู้ดูแลระบบได้ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setIsSubmitting(false);
     }

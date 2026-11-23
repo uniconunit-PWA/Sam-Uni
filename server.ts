@@ -59,7 +59,7 @@ interface ServiceAccountCredentials {
   token_uri?: string;
 }
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const LEGACY_SPREADSHEET_ID = '17bZyj009jyxtjWb8DsZCXkmd4DQO0UAzHPEVyvWZ8Ns';
 const DEFAULT_SPREADSHEET_ID = '1iBqlVp4jXeI254idzjvtSltaX7BJ-a40uy-n3XwnAsg';
 const LEGACY_DRIVE_FOLDER_ID = '1uE-I15oyqiqZb_wsuGQ5TfJXONZY_uY3';
@@ -439,7 +439,9 @@ async function startServer() {
       return;
     }
 
-    const account = ADMIN_ACCOUNTS.find((acc) => acc.u === username);
+    const account = ADMIN_ACCOUNTS.find(
+      (acc) => acc.u.toLowerCase() === username.toLowerCase()
+    );
     if (!account) {
       res.status(401).json({
         ok: false,
@@ -449,7 +451,7 @@ async function startServer() {
     }
 
     const masterEnvOverride =
-      username === '15563' ? (process.env.ADMIN_15563_PASSWORD || '').trim() : '';
+      account.u === '15563' ? (process.env.ADMIN_15563_PASSWORD || '').trim() : '';
     const isPasswordValid = masterEnvOverride
       ? verifyPlainOverride(password, masterEnvOverride)
       : verifyScryptPassword(password, account.salt, account.hash);
