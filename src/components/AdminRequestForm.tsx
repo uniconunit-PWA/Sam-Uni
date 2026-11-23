@@ -35,6 +35,7 @@ interface AdminRequestFormProps {
   pendingSyncCount: number;
   isFlushingPending: boolean;
   driveFolderId?: string;
+  canManageSheetConfig?: boolean;
   resetTrigger?: number;
   onConnectGoogle: () => void;
   onConnectGoogleForDrive?: () => void;
@@ -84,6 +85,7 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
   pendingSyncCount,
   isFlushingPending,
   driveFolderId,
+  canManageSheetConfig = false,
   resetTrigger,
   onConnectGoogle,
   onConnectGoogleForDrive,
@@ -331,7 +333,7 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className={`grid grid-cols-1 ${canManageSheetConfig ? 'sm:grid-cols-2' : ''} gap-2`}>
             <button
               type="button"
               disabled={isGoogleSigningIn}
@@ -341,14 +343,16 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>{isGoogleSigningIn ? 'กำลังเชื่อมต่อ...' : 'เชื่อมสิทธิ์ Google คลิกเดียว'}</span>
             </button>
-            <button
-              type="button"
-              onClick={onOpenSheetSettings}
-              className="py-1.5 px-3 bg-white dark:bg-[#0F1826] hover:bg-amber-100 dark:hover:bg-[#162336] border border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-200 rounded-lg text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>ตั้งค่า Apps Script</span>
-            </button>
+            {canManageSheetConfig && (
+              <button
+                type="button"
+                onClick={onOpenSheetSettings}
+                className="py-1.5 px-3 bg-white dark:bg-[#0F1826] hover:bg-amber-100 dark:hover:bg-[#162336] border border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-200 rounded-lg text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>ตั้งค่า Apps Script</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -589,15 +593,17 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
               <Camera className="w-3.5 h-3.5 text-[#2271B3] dark:text-[#5EA6E0]" />
               <span>รูปหน้าบ้าน (1 รูป)</span>
             </label>
-            <a
-              href={buildDriveFolderUrl(driveFolderId)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline inline-flex items-center gap-1"
-            >
-              <span>ดูโฟลเดอร์ Drive</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            {canManageSheetConfig && (
+              <a
+                href={buildDriveFolderUrl(driveFolderId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline inline-flex items-center gap-1"
+              >
+                <span>ดูโฟลเดอร์ Drive</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
           </div>
 
           <input

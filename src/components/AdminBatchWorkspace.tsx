@@ -51,6 +51,7 @@ interface AdminBatchWorkspaceProps {
   appsScriptUrl?: string;
   accessToken?: string | null;
   driveFolderId?: string;
+  canManageSheetConfig?: boolean;
   onBatchCountChange?: (count: number) => void;
   onBatchesChange?: (batches: CompletedBatch[]) => void;
   onUpdateStatusesToCompleted?: (targetRecords: MeterRequest[]) => Promise<{
@@ -117,6 +118,7 @@ export const AdminBatchWorkspace: React.FC<AdminBatchWorkspaceProps> = ({
   appsScriptUrl,
   accessToken,
   driveFolderId,
+  canManageSheetConfig = false,
   onBatchCountChange,
   onBatchesChange,
   onNotify,
@@ -638,15 +640,17 @@ export const AdminBatchWorkspace: React.FC<AdminBatchWorkspaceProps> = ({
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   ที่เก็บข้อมูลชุดงานติดตั้งเสร็จสิ้น
                 </h3>
-                <a
-                  href={buildDriveFolderUrl(driveFolderId)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline"
-                >
-                  <span>เปิดโฟลเดอร์ Drive</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                {canManageSheetConfig && (
+                  <a
+                    href={buildDriveFolderUrl(driveFolderId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline"
+                  >
+                    <span>เปิดโฟลเดอร์ Drive</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 บันทึกประวัติชุดงานพร้อมข้อมูลครบทุกคอลัมน์ สามารถเปิดดู แก้ไข และส่งออกเป็น Excel หรือ PDF ซ้ำได้ตลอดเวลา

@@ -1831,6 +1831,7 @@ export default function App() {
                 isLoading={isLoading}
                 isAdmin={isAdmin}
                 searchQuery={searchQuery}
+                statusOptions={statusOptions}
                 filterContext={{
                   status: filterStatus,
                   location: [filterMoo ? `หมู่ที่ ${filterMoo}` : '', filterSubdistrict, filterDistrict, filterProvince].filter(Boolean).join(' '),
@@ -1845,6 +1846,7 @@ export default function App() {
                   totalUnfilteredCount: records.length,
                 }}
                 onSearchChange={setSearchQuery}
+                onStatusChange={setFilterStatus}
                 onFocusRecord={(rec) => {
                   setFocusedRecord(rec);
                   document

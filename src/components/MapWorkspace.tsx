@@ -66,8 +66,41 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
     lat: number;
     lng: number;
   } | null>(null);
+  const [streetViewNotice, setStreetViewNotice] = useState<string>('');
   const [fitAllTrigger, setFitAllTrigger] = useState(0);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  const resolveStreetViewPoint = useCallback((): { lat: number; lng: number } => {
+    if (selectedRecord?.latitude != null && selectedRecord?.longitude != null) {
+      return { lat: selectedRecord.latitude, lng: selectedRecord.longitude };
+    }
+    if (focusedRecord?.latitude != null && focusedRecord?.longitude != null) {
+      return { lat: focusedRecord.latitude, lng: focusedRecord.longitude };
+    }
+    if (pickedCoords) {
+      return pickedCoords;
+    }
+    if (userLocation) {
+      return userLocation;
+    }
+    const firstMapped = records.find(
+      (r) => r.latitude !== null && r.longitude !== null
+    );
+    if (firstMapped?.latitude != null && firstMapped?.longitude != null) {
+      return { lat: firstMapped.latitude, lng: firstMapped.longitude };
+    }
+    return { lat: 16.0633, lng: 99.8605 };
+  }, [selectedRecord, focusedRecord, pickedCoords, userLocation, records]);
+
+  const handleToggleStreetView = useCallback(() => {
+    setStreetViewNotice('');
+    if (streetViewTarget) {
+      setStreetViewTarget(null);
+      return;
+    }
+    const point = resolveStreetViewPoint();
+    setStreetViewTarget(point);
+  }, [streetViewTarget, resolveStreetViewPoint]);
 
   const handleRouteComputed = useCallback(
     (summary: RouteSummary | null, error?: string) => {
@@ -171,18 +204,65 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
             )}
           </button>
 
-          {streetViewTarget && (
-            <button
-              type="button"
-              onClick={() => setStreetViewTarget(null)}
-              className="px-2.5 sm:px-3 py-1.5 bg-[#2271B3] hover:bg-[#1A5A8F] text-white rounded-lg text-[11px] sm:text-xs font-medium inline-flex items-center gap-1 whitespace-nowrap"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>ออกจาก Street View</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleToggleStreetView}
+            title={
+              streetViewTarget
+                ? 'กลับไปหน้าแผนที่ปกติ'
+                : 'เปิดดูภาพถนน Street View 360°'
+            }
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium inline-flex items-center gap-1 whitespace-nowrap transition-colors ${
+              streetViewTarget
+                ? 'bg-[#2271B3] hover:bg-[#1A5A8F] text-white shadow-xs'
+                : 'bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1D3350] hover:bg-[#E7F0FC] dark:hover:bg-[#15253D] text-slate-700 dark:text-slate-200'
+            }`}
+          >
+            <Compass
+              className={`w-3.5 h-3.5 ${
+                streetViewTarget
+                  ? 'text-white'
+                  : 'text-[#0B4DA2] dark:text-[#66B2FF]'
+              }`}
+            />
+            <span>{streetViewTarget ? 'ออกจาก Street View' : 'Street View'}</span>
+          </button>
         </div>
       </div>
+
+      {/* Street View unavailable notice or fallback Street View launcher */}
+      {(streetViewNotice || (!mapsApiKey && streetViewTarget)) && (
+        <div className="px-3 sm:px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
+          <span>
+            {streetViewNotice ||
+              `พิกัด ${streetViewTarget?.lat.toFixed(5)}, ${streetViewTarget?.lng.toFixed(5)} พร้อมเปิดภาพ Street View 360°`}
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {!mapsApiKey && streetViewTarget && (
+              <a
+                href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${streetViewTarget.lat},${streetViewTarget.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-[#0B4DA2] dark:text-[#66B2FF] hover:underline inline-flex items-center gap-1"
+              >
+                <span>เปิด Google Street View</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setStreetViewNotice('');
+                if (!mapsApiKey) setStreetViewTarget(null);
+              }}
+              className="text-amber-700 dark:text-amber-300 hover:underline inline-flex items-center gap-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>ปิด</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Non-blocking info notice when Google Maps Platform key hasn't been configured yet (Admin Only) */}
       {isAdmin && !mapsApiKey && (
@@ -273,8 +353,12 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
               onSelectRecord={setSelectedRecord}
               onEditRecord={onEditRecord}
               onRequestRoute={handleRequestRoute}
-              onOpenStreetView={(lat, lng) => setStreetViewTarget({ lat, lng })}
+              onOpenStreetView={(lat, lng) => {
+                setStreetViewNotice('');
+                setStreetViewTarget({ lat, lng });
+              }}
               onCloseStreetView={() => setStreetViewTarget(null)}
+              onStreetViewError={(msg) => setStreetViewNotice(msg)}
               onRouteComputed={handleRouteComputed}
             />
           ) : (

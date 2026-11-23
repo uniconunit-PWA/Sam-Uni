@@ -314,7 +314,7 @@ export function mergeSheetWithOverlay(
     }
   }
 
-  const addedRecords: MeterRequest[] = [];
+  const addedEntries: Array<{ record: MeterRequest; createdAt: number }> = [];
   for (const add of overlay.additions || []) {
     if (deletedSet.has(add.uid)) continue;
     // Skip if already synced into the live Google Sheet
@@ -325,28 +325,37 @@ export function mergeSheetWithOverlay(
     );
     if (alreadyInSheet) continue;
 
-    addedRecords.push({
-      rowIndex: add.rowIndex,
-      uid: add.uid,
-      rqNumber: add.rqNumber,
-      requestDate: add.requestDate,
-      fullName: add.fullName,
-      houseNo: add.houseNo,
-      moo: add.moo,
-      subdistrict: add.subdistrict,
-      district: add.district,
-      province: add.province,
-      locationSummary: add.locationSummary,
-      phone: add.phone,
-      price: add.price,
-      status: add.status,
-      latitude: add.latitude,
-      longitude: add.longitude,
-      note: add.note,
-      housePhotoUrl: add.housePhotoUrl || '',
-      raw: {},
+    addedEntries.push({
+      createdAt: Number(add.createdAt) || 0,
+      record: {
+        rowIndex: add.rowIndex,
+        uid: add.uid,
+        rqNumber: add.rqNumber,
+        requestDate: add.requestDate,
+        fullName: add.fullName,
+        houseNo: add.houseNo,
+        moo: add.moo,
+        subdistrict: add.subdistrict,
+        district: add.district,
+        province: add.province,
+        locationSummary: add.locationSummary,
+        phone: add.phone,
+        price: add.price,
+        status: add.status,
+        latitude: add.latitude,
+        longitude: add.longitude,
+        note: add.note,
+        housePhotoUrl: add.housePhotoUrl || '',
+        raw: {},
+      },
     });
   }
 
-  return [...mergedSheetRecords, ...addedRecords];
+  // Show newest recorded requests first: latest unsynced additions first, then Sheet rows in reverse rowIndex order
+  addedEntries.sort(
+    (a, b) => b.createdAt - a.createdAt || a.record.rowIndex - b.record.rowIndex
+  );
+  mergedSheetRecords.sort((a, b) => b.rowIndex - a.rowIndex);
+
+  return [...addedEntries.map((entry) => entry.record), ...mergedSheetRecords];
 }
