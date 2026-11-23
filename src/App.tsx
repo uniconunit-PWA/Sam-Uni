@@ -71,6 +71,7 @@ import { AdminLoginModal, type AdminSessionPayload } from './components/AdminLog
 import { SheetSettingsModal } from './components/SheetSettingsModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { PWAInstallControl, OfflineIndicator } from './components/PWAInstallControl';
+import { WelcomeSplashPage } from './components/WelcomeSplashPage';
 import {
   fetchCompletedBatches,
   getEligibleCompletedUnbatchedRecords,
@@ -152,6 +153,9 @@ export default function App() {
       // ignore storage errors
     }
   }, [theme, isDark]);
+
+  // Entry splash screen state
+  const [hasEnteredSplash, setHasEnteredSplash] = useState(false);
 
   // Auth & Role states
   const [isAdmin, setIsAdmin] = useState(false);
@@ -243,6 +247,7 @@ export default function App() {
 
   // Handle Chrome PWA App Shortcuts (?view=map|admin|analytics|settings)
   useEffect(() => {
+    if (!hasEnteredSplash) return undefined;
     try {
       const params = new URLSearchParams(window.location.search);
       const view = params.get('view');
@@ -276,7 +281,7 @@ export default function App() {
     } catch {
       return undefined;
     }
-  }, [isAdmin, canManageSheetConfig, showToast]);
+  }, [hasEnteredSplash, isAdmin, canManageSheetConfig, showToast]);
 
   // Initialize Firebase Auth listener (with silent token refresh if already consented)
   useEffect(() => {
@@ -1237,6 +1242,15 @@ export default function App() {
         second: '2-digit',
       })
     : 'กำลังเชื่อมต่อ...';
+
+  if (!hasEnteredSplash) {
+    return (
+      <WelcomeSplashPage
+        onEnter={() => setHasEnteredSplash(true)}
+        isDark={isDark}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[#EEF4FB] dark:bg-[#08111E] text-slate-900 dark:text-slate-100 transition-colors duration-200">

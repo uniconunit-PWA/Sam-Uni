@@ -6,7 +6,7 @@ interface WelcomeSplashPageProps {
   isDark?: boolean;
 }
 
-const WELCOME_POSTER_SRC = '/assets/aistudio/_________________________________5ac2f92c.png';
+const WELCOME_POSTER_SRC = '/assets/aistudio/__________________________________1__5ac2f92c.png';
 
 export const WelcomeSplashPage: React.FC<WelcomeSplashPageProps> = ({
   onEnter,
@@ -55,7 +55,7 @@ export const WelcomeSplashPage: React.FC<WelcomeSplashPageProps> = ({
           type="button"
           onClick={handleEnterClick}
           aria-label="กดที่รูปภาพเพื่อเข้าสู่ระบบติดตามคำขอติดตั้ง / ย้ายมาตรวัดน้ำ"
-          className="group relative flex flex-col items-center justify-center w-full max-w-full cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/80 transition-transform duration-200 motion-reduce:transition-none hover:scale-[1.01] active:scale-[0.99]"
+          className="group relative flex flex-col items-center justify-center w-fit max-w-full cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/80 transition-transform duration-200 motion-reduce:transition-none hover:scale-[1.01] active:scale-[0.99]"
         >
           {!imageError ? (
             <div className="relative flex items-center justify-center max-w-full rounded-xl sm:rounded-2xl overflow-hidden shadow-[0_24px_60px_-12px_rgba(2,18,52,0.7)] ring-1 ring-white/30 bg-[#0A4CA3]">
@@ -64,7 +64,7 @@ export const WelcomeSplashPage: React.FC<WelcomeSplashPageProps> = ({
                 alt="การประปาส่วนภูมิภาค ระบบติดตามคำขอ ติดตั้ง / ย้ายมาตรวัดน้ำ — กดที่รูปภาพเพื่อเข้าหน้าถัดไป"
                 referrerPolicy="no-referrer"
                 onError={() => setImageError(true)}
-                className="block w-auto h-auto max-w-full max-h-[calc(100dvh-4.5rem)] sm:max-h-[calc(100dvh-5.5rem)] lg:max-h-[calc(100dvh-6rem)] object-contain"
+                className="block w-auto h-auto max-w-[min(100%,calc(100vw-1.25rem))] sm:max-w-[min(92vw,760px)] lg:max-w-[min(90vw,960px)] max-h-[calc(100dvh-4.25rem)] sm:max-h-[calc(100dvh-5.25rem)] lg:max-h-[calc(100dvh-5.75rem)] object-contain"
               />
               <span
                 aria-hidden="true"
@@ -91,7 +91,7 @@ export const WelcomeSplashPage: React.FC<WelcomeSplashPageProps> = ({
           )}
 
           {/* Clean single-line prompt below the image (never overlapping poster artwork) */}
-          <div className="mt-2.5 sm:mt-3.5 inline-flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-white/95 group-hover:text-white tracking-wide drop-shadow-sm whitespace-nowrap">
+          <div className="mt-2.5 sm:mt-3.5 inline-flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-white/95 group-hover:text-white tracking-wide drop-shadow-sm whitespace-nowrap min-h-[32px]">
             <MousePointerClick className="w-4 h-4 text-sky-200 shrink-0" />
             <span>แตะหรือคลิกที่รูปภาพเพื่อเข้าหน้าถัดไป</span>
             <ArrowRight className="w-4 h-4 text-sky-200 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
