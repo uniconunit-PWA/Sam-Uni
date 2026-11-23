@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, X } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, X } from 'lucide-react';
 import {
   type AdminSessionPayload,
   authenticateAdmin,
@@ -20,6 +20,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,6 +48,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       setError('');
       setUsername('');
       setPassword('');
+      setShowPassword(false);
       onSuccess(result.session);
       onClose();
     } catch {
@@ -106,15 +108,28 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               รหัสผ่าน (Password)
             </label>
-            <input
-              type="password"
-              required
-              disabled={isSubmitting}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="ระบุรหัสผ่าน"
-              className="w-full bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1E3350] rounded-lg py-2 px-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-[#0F1E33] focus:border-[#0F62BD] dark:focus:border-[#4EA3FF] focus:ring-2 focus:ring-[#0F62BD]/20"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                disabled={isSubmitting}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="ระบุรหัสผ่าน"
+                className="w-full bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1E3350] rounded-lg py-2 pl-3 pr-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-[#0F1E33] focus:border-[#0F62BD] dark:focus:border-[#4EA3FF] focus:ring-2 focus:ring-[#0F62BD]/20"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                disabled={isSubmitting}
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 rounded transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           {error && (

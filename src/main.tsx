@@ -3,7 +3,31 @@ import {registerSW} from 'virtual:pwa-register';
 import App from './App.tsx';
 import './index.css';
 
-registerSW({immediate: true});
+let isRefreshingSw = false;
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  let hasActiveController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hasActiveController) {
+      hasActiveController = true;
+      return;
+    }
+    if (!isRefreshingSw) {
+      isRefreshingSw = true;
+      window.location.reload();
+    }
+  });
+}
+
+registerSW({
+  immediate: true,
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return;
+    registration.update().catch(() => {});
+    window.setInterval(() => {
+      registration.update().catch(() => {});
+    }, 60 * 1000);
+  },
+});
 
 (window as any).gm_authFailure = () => {
   window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));

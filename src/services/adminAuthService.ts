@@ -319,16 +319,12 @@ export async function authenticateAdmin(
       };
     }
 
-    // Backend is present and returned an explicit JSON rejection (400 / 401 / 403): do not bypass it.
-    const isRouteMissing =
-      res.status === 404 ||
-      res.status === 405 ||
-      res.status === 501 ||
-      res.status === 502 ||
-      res.status === 503 ||
-      res.status === 0;
-
-    if (!isRouteMissing && parsed && (parsed.ok === false || typeof parsed.message === 'string')) {
+    // Backend is present and returned an explicit auth rejection (400 / 401 / 403 with ok: false): do not bypass it.
+    if (
+      (res.status === 400 || res.status === 401 || res.status === 403) &&
+      parsed &&
+      parsed.ok === false
+    ) {
       return {
         ok: false,
         message:
@@ -338,7 +334,7 @@ export async function authenticateAdmin(
       };
     }
 
-    // Otherwise static host (GitHub Pages / Netlify / Vercel / vite preview / SPA HTML fallback): verify locally.
+    // Otherwise static host (Vercel / GitHub Pages / Netlify / vite preview / SPA HTML fallback): verify locally.
     return await verifyStaticFallback(u, p);
   } catch {
     // Offline or cross-origin / Apps Script host where /api/admin/login cannot be reached
