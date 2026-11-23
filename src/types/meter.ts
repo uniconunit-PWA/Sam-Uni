@@ -283,6 +283,11 @@ export function isNoPipeCancelledStatus(status: string): boolean {
   return s === 'ไม่มีเส้นท่อ/ยกเลิก' || s === 'ยกเลิก';
 }
 
+export function isCompletedMeterStatus(status?: string): boolean {
+  const s = (status || '').trim();
+  return s === 'ติดตั้งเสร็จสิ้น' || s === 'เสร็จสิ้น' || s === 'ดำเนินการแล้ว';
+}
+
 export function getNoPipeWarningSvgMarkup(size = 24, withHalo = false): string {
   const styleAttr = withHalo
     ? ' style="filter:drop-shadow(0 0 2px rgba(255,255,255,0.96)) drop-shadow(0 2px 4px rgba(0,0,0,0.45));display:block;"'

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Compass,
   ExternalLink,
@@ -11,7 +11,13 @@ import {
   Scan,
   X,
 } from 'lucide-react';
-import { MapLayerType, MeterRequest, RouteSummary, isNoPipeCancelledStatus } from '../types/meter';
+import {
+  MapLayerType,
+  MeterRequest,
+  RouteSummary,
+  isCompletedMeterStatus,
+  isNoPipeCancelledStatus,
+} from '../types/meter';
 import { GoogleMapsView } from './GoogleMapsView';
 import { FallbackLeafletMap } from './FallbackLeafletMap';
 import { NoPipeWarningIcon } from './StatusSymbol';
@@ -37,7 +43,6 @@ const LAYER_OPTIONS: Array<{ id: MapLayerType; label: string }> = [
 ];
 
 const LEGEND_ITEMS = [
-  { label: 'ติดตั้งเสร็จสิ้น', color: '#10b981' },
   { label: 'อยู่ระหว่างติดตั้ง', color: '#d97706' },
   { label: 'รอชำระเงิน', color: '#e11d48' },
   { label: 'รับคำร้องแล้ว(รอสำรวจ)', color: '#2271b3' },
@@ -70,12 +75,25 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
   const [fitAllTrigger, setFitAllTrigger] = useState(0);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
+  const mapRecords = useMemo(
+    () => records.filter((r) => !isCompletedMeterStatus(r.status)),
+    [records]
+  );
+
+  const mapFocusedRecord = useMemo(
+    () =>
+      focusedRecord && !isCompletedMeterStatus(focusedRecord.status)
+        ? focusedRecord
+        : null,
+    [focusedRecord]
+  );
+
   const resolveStreetViewPoint = useCallback((): { lat: number; lng: number } => {
     if (selectedRecord?.latitude != null && selectedRecord?.longitude != null) {
       return { lat: selectedRecord.latitude, lng: selectedRecord.longitude };
     }
-    if (focusedRecord?.latitude != null && focusedRecord?.longitude != null) {
-      return { lat: focusedRecord.latitude, lng: focusedRecord.longitude };
+    if (mapFocusedRecord?.latitude != null && mapFocusedRecord?.longitude != null) {
+      return { lat: mapFocusedRecord.latitude, lng: mapFocusedRecord.longitude };
     }
     if (pickedCoords) {
       return pickedCoords;
@@ -83,14 +101,14 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
     if (userLocation) {
       return userLocation;
     }
-    const firstMapped = records.find(
+    const firstMapped = mapRecords.find(
       (r) => r.latitude !== null && r.longitude !== null
     );
     if (firstMapped?.latitude != null && firstMapped?.longitude != null) {
       return { lat: firstMapped.latitude, lng: firstMapped.longitude };
     }
     return { lat: 16.0633, lng: 99.8605 };
-  }, [selectedRecord, focusedRecord, pickedCoords, userLocation, records]);
+  }, [selectedRecord, mapFocusedRecord, pickedCoords, userLocation, mapRecords]);
 
   const handleToggleStreetView = useCallback(() => {
     setStreetViewNotice('');
@@ -121,7 +139,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
     [userLocation, onLocateUser]
   );
 
-  const validCoordsCount = records.filter(
+  const validCoordsCount = mapRecords.filter(
     (r) => r.latitude !== null && r.longitude !== null
   ).length;
 
@@ -141,7 +159,7 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
               แผนที่พิกัดคำขอติดตั้ง/ย้ายมาตรวัดน้ำ
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums truncate">
-              มีพิกัด {validCoordsCount} / {records.length} รายการ
+              มีพิกัด {validCoordsCount} / {mapRecords.length} รายการ (ซ่อนกลุ่มติดตั้งเสร็จสิ้น)
               {isAdmin ? ' · คลิกบนแผนที่เพื่อปักหมุด' : ''}
             </p>
           </div>
@@ -339,13 +357,14 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
           {mapsApiKey ? (
             <GoogleMapsView
               apiKey={mapsApiKey}
-              records={records}
+              records={mapRecords}
               isAdmin={isAdmin}
               isDark={isDark}
               layerType={layerType}
+              onChangeLayerType={setLayerType}
               pickedCoords={pickedCoords}
               userLocation={userLocation}
-              focusedRecord={focusedRecord}
+              focusedRecord={mapFocusedRecord}
               routeTarget={routeTarget}
               streetViewTarget={streetViewTarget}
               fitAllTrigger={fitAllTrigger}
@@ -363,19 +382,24 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
             />
           ) : (
             <FallbackLeafletMap
-              records={records}
+              records={mapRecords}
               isAdmin={isAdmin}
               isDark={isDark}
               layerType={layerType}
+              onChangeLayerType={setLayerType}
               pickedCoords={pickedCoords}
               userLocation={userLocation}
-              focusedRecord={focusedRecord}
+              focusedRecord={mapFocusedRecord}
               routeTarget={routeTarget}
               fitAllTrigger={fitAllTrigger}
               onMapClickCoords={onMapClickCoords}
               onSelectRecord={setSelectedRecord}
               onEditRecord={onEditRecord}
               onRequestRoute={handleRequestRoute}
+              onOpenStreetView={(lat, lng) => {
+                setStreetViewNotice('');
+                setStreetViewTarget({ lat, lng });
+              }}
               onRouteComputed={handleRouteComputed}
             />
           )}

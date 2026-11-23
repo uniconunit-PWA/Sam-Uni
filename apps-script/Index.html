@@ -291,7 +291,6 @@
             <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#2271B3]"></span>รอตรวจสอบ</span>
             <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span>รอชำระเงิน</span>
             <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>อยู่ระหว่างติดตั้ง</span>
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>ติดตั้งเสร็จสิ้น</span>
             <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>ไม่มีเส้นท่อ/ยกเลิก</span>
           </div>
           <span id="admin-map-hint" class="hidden text-[11px] text-[#2271B3] dark:text-[#5EA6E0] font-medium">โหมด Admin: คลิกบนแผนที่เพื่อปักหมุดพิกัดลงแบบฟอร์มได้ทันที</span>
@@ -1060,7 +1059,9 @@
         applyFilters();
 
         if (isFirstLoad) {
-          const pts = nextRecords.filter(r => r.latitude !== null && r.longitude !== null).map(r => [r.latitude, r.longitude]);
+          const pts = nextRecords
+            .filter(r => r.latitude !== null && r.longitude !== null && !['ติดตั้งเสร็จสิ้น', 'เสร็จสิ้น', 'ดำเนินการแล้ว'].includes(String(r.status || '').trim()))
+            .map(r => [r.latitude, r.longitude]);
           if (pts.length === 1) map.setView(pts[0], 15);
           else if (pts.length > 1) map.fitBounds(pts, { padding: [50, 50], maxZoom: 15 });
         }
@@ -1246,6 +1247,7 @@
       markersLayer.clearLayers();
       let count = 0;
       filteredRecords.forEach(r => {
+        if (['ติดตั้งเสร็จสิ้น', 'เสร็จสิ้น', 'ดำเนินการแล้ว'].includes(String(r.status || '').trim())) return;
         if (r.latitude === null || r.longitude === null) return;
         count++;
         const color = statusColor(r.status);

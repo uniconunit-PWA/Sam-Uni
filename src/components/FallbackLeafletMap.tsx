@@ -28,6 +28,7 @@ interface FallbackLeafletMapProps {
   isAdmin: boolean;
   isDark?: boolean;
   layerType: MapLayerType;
+  onChangeLayerType?: (layer: MapLayerType) => void;
   pickedCoords: { lat: number; lng: number } | null;
   userLocation: { lat: number; lng: number } | null;
   focusedRecord: MeterRequest | null;
@@ -37,6 +38,7 @@ interface FallbackLeafletMapProps {
   onSelectRecord: (record: MeterRequest | null) => void;
   onEditRecord: (record: MeterRequest) => void;
   onRequestRoute: (record: MeterRequest) => void;
+  onOpenStreetView?: (lat: number, lng: number) => void;
   onRouteComputed: (summary: RouteSummary | null, error?: string) => void;
 }
 
@@ -65,6 +67,7 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
   isAdmin,
   isDark = false,
   layerType,
+  onChangeLayerType,
   pickedCoords,
   userLocation,
   focusedRecord,
@@ -74,6 +77,7 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
   onSelectRecord,
   onEditRecord,
   onRequestRoute,
+  onOpenStreetView,
   onRouteComputed,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,11 +93,16 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isPegmanPickMode, setIsPegmanPickMode] = useState(false);
 
   const isAdminRef = useRef(isAdmin);
   isAdminRef.current = isAdmin;
   const onMapClickRef = useRef(onMapClickCoords);
   onMapClickRef.current = onMapClickCoords;
+  const isPegmanPickModeRef = useRef(isPegmanPickMode);
+  isPegmanPickModeRef.current = isPegmanPickMode;
+  const onOpenStreetViewRef = useRef(onOpenStreetView);
+  onOpenStreetViewRef.current = onOpenStreetView;
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -111,6 +120,11 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
     markersGroupRef.current = L.layerGroup().addTo(map);
 
     map.on('click', (e: L.LeafletMouseEvent) => {
+      if (isPegmanPickModeRef.current) {
+        setIsPegmanPickMode(false);
+        onOpenStreetViewRef.current?.(e.latlng.lat, e.latlng.lng);
+        return;
+      }
       if (isAdminRef.current) {
         onMapClickRef.current(e.latlng.lat, e.latlng.lng);
       }
@@ -628,7 +642,106 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
           </div>
         )}
 
-      <div ref={containerRef} className="w-full h-full z-10" />
+      {/* Bottom-Right Pegman & Imagery Dock (matching Google Maps Street View dock) */}
+      <div className="absolute bottom-6 right-12 z-[500] flex items-center gap-1.5 bg-[#1C2128]/90 backdrop-blur-md border border-white/15 rounded-lg p-1 shadow-xl text-white select-none">
+        <button
+          type="button"
+          onClick={() => {
+            if (isPegmanPickMode) {
+              setIsPegmanPickMode(false);
+              const target =
+                selectedPopupRecord?.latitude != null &&
+                selectedPopupRecord?.longitude != null
+                  ? {
+                      lat: selectedPopupRecord.latitude,
+                      lng: selectedPopupRecord.longitude,
+                    }
+                  : mapRef.current
+                  ? {
+                      lat: mapRef.current.getCenter().lat,
+                      lng: mapRef.current.getCenter().lng,
+                    }
+                  : { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
+              onOpenStreetView?.(target.lat, target.lng);
+              return;
+            }
+            setIsPegmanPickMode(true);
+          }}
+          title="เรียกดูภาพ Street View (คลิกเพื่อจิ้มจุดบนถนน)"
+          aria-pressed={isPegmanPickMode}
+          className={`group relative flex items-center justify-center w-7 h-7 rounded-md border transition-colors ${
+            isPegmanPickMode
+              ? 'bg-amber-400 text-slate-950 border-amber-200 shadow-sm'
+              : 'bg-white/10 hover:bg-amber-400/20 border-white/10 hover:border-amber-300/60'
+          }`}
+        >
+          <Compass
+            className={`w-4 h-4 ${isPegmanPickMode ? 'text-slate-950' : 'text-amber-300'}`}
+          />
+          <span className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity absolute -top-9 right-0 whitespace-nowrap bg-[#11161D] text-white text-[11px] font-medium px-2.5 py-1 rounded-md shadow-lg border border-white/15">
+            {isPegmanPickMode ? 'คลิกจุดบนถนนเพื่อดู Street View' : 'เรียกดูภาพ Street View'}
+          </span>
+        </button>
+
+        {onChangeLayerType && (
+          <>
+            <div className="w-px h-5 bg-white/20" aria-hidden="true" />
+            <div className="flex items-center gap-1">
+              {(
+                [
+                  {
+                    id: 'roadmap' as MapLayerType,
+                    label: 'ถนน',
+                    bg: 'linear-gradient(135deg, #e2e8f0 0%, #f8fafc 45%, #cbd5e1 46%, #93c5fd 48%, #f1f5f9 52%, #e2e8f0 100%)',
+                  },
+                  {
+                    id: 'satellite' as MapLayerType,
+                    label: 'ดาว',
+                    bg: 'radial-gradient(circle at 30% 35%, #3f6212 0%, #166534 45%, #14532d 75%, #064e3b 100%)',
+                  },
+                  {
+                    id: 'hybrid' as MapLayerType,
+                    label: 'ผสม',
+                    bg: 'linear-gradient(125deg, #166534 0%, #365314 44%, #facc15 46%, #14532d 50%, #1e3a8a 100%)',
+                  },
+                ]
+              ).map((item) => {
+                const active = layerType === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onChangeLayerType(item.id)}
+                    title={item.label}
+                    aria-pressed={active}
+                    className={`relative w-7 h-7 rounded-[5px] overflow-hidden border transition-all ${
+                      active
+                        ? 'border-[#66B2FF] ring-2 ring-[#66B2FF]/70 scale-105'
+                        : 'border-white/30 hover:border-white/80 opacity-85 hover:opacity-100'
+                    }`}
+                    style={{ background: item.bg }}
+                  >
+                    <span className="absolute inset-x-0 bottom-0 bg-black/60 text-[8px] leading-tight text-center text-white/95 font-medium px-0.5">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {isPegmanPickMode && (
+        <div className="absolute top-14 right-2.5 z-[500] bg-[#11161D]/90 text-amber-200 border border-amber-400/40 rounded-lg px-3 py-1.5 text-[11px] font-medium shadow-lg">
+          คลิกตำแหน่งบนถนนในแผนที่ เพื่อเปิดภาพ Street View
+        </div>
+      )}
+
+      <div
+        ref={containerRef}
+        className={`w-full h-full z-10 ${isPegmanPickMode ? 'cursor-crosshair' : ''}`}
+      />
     </div>
   );
 };

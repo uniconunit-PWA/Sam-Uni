@@ -53,6 +53,7 @@ interface GoogleMapsViewProps {
   isAdmin: boolean;
   isDark?: boolean;
   layerType: MapLayerType;
+  onChangeLayerType?: (layer: MapLayerType) => void;
   pickedCoords: { lat: number; lng: number } | null;
   userLocation: { lat: number; lng: number } | null;
   focusedRecord: MeterRequest | null;
@@ -71,14 +72,23 @@ interface GoogleMapsViewProps {
 
 interface AdvancedMarkerWithRefProps extends AdvancedMarkerProps {
   onMarkerClick: (marker: google.maps.marker.AdvancedMarkerElement) => void;
+  onMarkerMount?: (marker: google.maps.marker.AdvancedMarkerElement | null) => void;
 }
 
 const AdvancedMarkerWithRef: React.FC<AdvancedMarkerWithRefProps> = ({
   children,
   onMarkerClick,
+  onMarkerMount,
   ...rest
 }) => {
   const [markerRef, marker] = useAdvancedMarkerRef();
+  useEffect(() => {
+    onMarkerMount?.(marker || null);
+    return () => {
+      onMarkerMount?.(null);
+    };
+  }, [marker, onMarkerMount]);
+
   return (
     <AdvancedMarker
       ref={markerRef}
@@ -368,6 +378,7 @@ function computeBearingDeg(
 interface MapEffectsProps {
   focusedRecord: MeterRequest | null;
   records: MeterRequest[];
+  layerType: MapLayerType;
   fitAllTrigger: number;
   streetViewTarget: { lat: number; lng: number } | null;
   onOpenStreetView: (lat: number, lng: number) => void;
@@ -378,6 +389,7 @@ interface MapEffectsProps {
 const GoogleMapEffects: React.FC<MapEffectsProps> = ({
   focusedRecord,
   records,
+  layerType,
   fitAllTrigger,
   streetViewTarget,
   onOpenStreetView,
@@ -390,12 +402,43 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
   const hasAutoFitRef = useRef(false);
   const streetViewTargetRef = useRef(streetViewTarget);
   streetViewTargetRef.current = streetViewTarget;
+  const openedViaNativePegmanRef = useRef(false);
 
   useEffect(() => {
     if (apiStatus === APILoadingStatus.AUTH_FAILURE) {
       window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
     }
   }, [apiStatus]);
+
+  // Ensure native Street View Pegman, zoom, and dynamic mapTypeId stay synchronized
+  useEffect(() => {
+    if (!map) return;
+    map.setMapTypeId(layerType);
+  }, [map, layerType]);
+
+  useEffect(() => {
+    if (!map || typeof google === 'undefined') return;
+    map.setOptions({
+      streetViewControl: true,
+      streetViewControlOptions: {
+        position: google.maps.ControlPosition.RIGHT_BOTTOM,
+      },
+      zoomControl: true,
+      zoomControlOptions: {
+        position: google.maps.ControlPosition.RIGHT_BOTTOM,
+      },
+    });
+    const panorama = map.getStreetView();
+    if (panorama) {
+      panorama.setOptions({
+        addressControl: true,
+        linksControl: true,
+        panControl: true,
+        zoomControl: true,
+        enableCloseButton: true,
+      });
+    }
+  }, [map]);
 
   useEffect(() => {
     if (
@@ -436,7 +479,7 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
     map.fitBounds(bounds, 56);
   }, [map, fitAllTrigger, records]);
 
-  // Keep React state in sync when user enters/exits Street View via Pegman or native close button
+  // Keep React state in sync when user drops native Pegman on a road or clicks Street View close button
   useEffect(() => {
     if (!map) return;
     const panorama = map.getStreetView();
@@ -444,12 +487,21 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
 
     const listener = panorama.addListener('visible_changed', () => {
       const visible = panorama.getVisible();
-      if (!visible && streetViewTargetRef.current) {
-        onCloseStreetView();
+      if (!visible) {
+        openedViaNativePegmanRef.current = false;
+        if (streetViewTargetRef.current) {
+          onCloseStreetView();
+        }
       } else if (visible && !streetViewTargetRef.current) {
+        openedViaNativePegmanRef.current = true;
         const pos = panorama.getPosition();
         if (pos) {
           onOpenStreetView(pos.lat(), pos.lng());
+        } else {
+          const center = map.getCenter();
+          if (center) {
+            onOpenStreetView(center.lat(), center.lng());
+          }
         }
       }
     });
@@ -457,16 +509,23 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
     return () => listener.remove();
   }, [map, onOpenStreetView, onCloseStreetView]);
 
-  // Open nearest Street View panorama and aim camera toward target coordinate
+  // Open nearest Street View panorama when triggered programmatically (toolbar / pin / search)
   useEffect(() => {
     if (!map) return;
     const panorama = map.getStreetView();
     if (!panorama) return;
 
     if (!streetViewTarget) {
+      openedViaNativePegmanRef.current = false;
       if (panorama.getVisible()) {
         panorama.setVisible(false);
       }
+      return;
+    }
+
+    // If user dropped native Pegman on the road directly, preserve Google's exact road panorama & heading
+    if (openedViaNativePegmanRef.current) {
+      openedViaNativePegmanRef.current = false;
       return;
     }
 
@@ -489,7 +548,7 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
     const preference = streetViewLib.StreetViewPreference?.NEAREST;
 
     const findNearestPanorama = async () => {
-      for (const radius of [120, 500]) {
+      for (const radius of [120, 500, 1500]) {
         try {
           const res = await sv.getPanorama({
             location: streetViewTarget,
@@ -513,7 +572,10 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
             panorama.setVisible(true);
             return;
           }
-        } catch {
+        } catch (err) {
+          if (isQuotaExceededError(err)) {
+            window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+          }
           // Try wider radius before reporting unavailable
         }
       }
@@ -521,7 +583,7 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
       if (!cancelled) {
         panorama.setVisible(false);
         onStreetViewError?.(
-          'ไม่พบภาพ Street View ในรัศมี 500 เมตรจากจุดนี้ กรุณาเลือกหมุดใกล้ถนน หรือลากไอคอนคนสีเหลือง (Pegman) ไปวางบนถนน'
+          'ไม่พบภาพ Street View ในรัศมี 1.5 กม. จากจุดนี้ กรุณาเลือกหมุดใกล้ถนน หรือลากไอคอนคนสีเหลือง (Pegman) ด้านขวาล่างไปวางบนถนน'
         );
         onCloseStreetView();
       }
@@ -537,12 +599,141 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
   return null;
 };
 
+interface BottomRightDockProps {
+  layerType: MapLayerType;
+  streetViewTarget: { lat: number; lng: number } | null;
+  pickedCoords: { lat: number; lng: number } | null;
+  searchedPin: { lat: number; lng: number; label: string } | null;
+  focusedRecord: MeterRequest | null;
+  activeRecord: MeterRequest | null;
+  onChangeLayerType?: (layer: MapLayerType) => void;
+  onOpenStreetView: (lat: number, lng: number) => void;
+}
+
+const LAYER_THUMBNAILS: Array<{
+  id: MapLayerType;
+  label: string;
+  bgStyle: string;
+}> = [
+  {
+    id: 'roadmap',
+    label: 'แผนที่ถนน',
+    bgStyle:
+      'linear-gradient(135deg, #e2e8f0 0%, #f8fafc 45%, #cbd5e1 46%, #93c5fd 48%, #f1f5f9 52%, #e2e8f0 100%)',
+  },
+  {
+    id: 'satellite',
+    label: 'ภาพดาวเทียม',
+    bgStyle:
+      'radial-gradient(circle at 30% 35%, #3f6212 0%, #166534 45%, #14532d 75%, #064e3b 100%)',
+  },
+  {
+    id: 'hybrid',
+    label: 'ดาวเทียม + ถนน',
+    bgStyle:
+      'linear-gradient(125deg, #166534 0%, #365314 44%, #facc15 46%, #14532d 50%, #1e3a8a 100%)',
+  },
+];
+
+const BottomRightImageryDock: React.FC<BottomRightDockProps> = ({
+  layerType,
+  streetViewTarget,
+  pickedCoords,
+  searchedPin,
+  focusedRecord,
+  activeRecord,
+  onChangeLayerType,
+  onOpenStreetView,
+}) => {
+  const map = useMap();
+
+  if (streetViewTarget) return null;
+
+  const handleQuickStreetView = () => {
+    const rec = activeRecord || focusedRecord;
+    if (rec?.latitude != null && rec?.longitude != null) {
+      onOpenStreetView(rec.latitude, rec.longitude);
+      return;
+    }
+    if (pickedCoords) {
+      onOpenStreetView(pickedCoords.lat, pickedCoords.lng);
+      return;
+    }
+    if (searchedPin) {
+      onOpenStreetView(searchedPin.lat, searchedPin.lng);
+      return;
+    }
+    const center = map?.getCenter();
+    if (center) {
+      onOpenStreetView(center.lat(), center.lng());
+      return;
+    }
+    onOpenStreetView(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
+  };
+
+  return (
+    <div
+      className="absolute bottom-6 right-14 z-20 flex items-center gap-1.5 bg-[#1C2128]/90 backdrop-blur-md border border-white/15 rounded-lg p-1 shadow-xl text-white select-none"
+      aria-label="ตัวเลือกมุมมองแผนที่และ Street View"
+    >
+      <button
+        type="button"
+        onClick={handleQuickStreetView}
+        title="เรียกดูภาพ Street View (หรือลากไอคอนคนสีเหลืองด้านขวาไปวางบนถนน)"
+        className="group relative flex items-center justify-center w-7 h-7 rounded-md bg-white/10 hover:bg-amber-400/20 border border-white/10 hover:border-amber-300/60 transition-colors shrink-0"
+      >
+        <Compass className="w-4 h-4 text-amber-300" />
+        <span className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity absolute -top-9 right-0 whitespace-nowrap bg-[#11161D] text-white text-[11px] font-medium px-2.5 py-1 rounded-md shadow-lg border border-white/15">
+          เรียกดูภาพ Street View
+        </span>
+      </button>
+
+      {onChangeLayerType && (
+        <>
+          <div className="w-px h-5 bg-white/20" aria-hidden="true" />
+          <div className="flex items-center gap-1">
+            {LAYER_THUMBNAILS.map((item) => {
+              const active = layerType === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onChangeLayerType(item.id)}
+                  title={item.label}
+                  aria-label={item.label}
+                  aria-pressed={active}
+                  className={`relative w-7 h-7 rounded-[5px] overflow-hidden border transition-all ${
+                    active
+                      ? 'border-[#66B2FF] ring-2 ring-[#66B2FF]/70 scale-105'
+                      : 'border-white/30 hover:border-white/80 opacity-85 hover:opacity-100'
+                  }`}
+                  style={{ background: item.bgStyle }}
+                >
+                  <span className="sr-only">{item.label}</span>
+                  <span className="absolute inset-x-0 bottom-0 bg-black/60 text-[8px] leading-tight text-center text-white/95 font-medium truncate px-0.5">
+                    {item.id === 'roadmap'
+                      ? 'ถนน'
+                      : item.id === 'satellite'
+                      ? 'ดาว'
+                      : 'ผสม'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
   apiKey,
   records,
   isAdmin,
   isDark = false,
   layerType,
+  onChangeLayerType,
   pickedCoords,
   userLocation,
   focusedRecord,
@@ -561,6 +752,9 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
   const [selectedAnchor, setSelectedAnchor] =
     useState<google.maps.marker.AdvancedMarkerElement | null>(null);
   const [activeRecord, setActiveRecord] = useState<MeterRequest | null>(null);
+  const markerRefs = useRef<
+    Record<string, google.maps.marker.AdvancedMarkerElement | null>
+  >({});
   const [searchedPin, setSearchedPin] = useState<{
     lat: number;
     lng: number;
@@ -570,6 +764,10 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
   useEffect(() => {
     if (focusedRecord) {
       setActiveRecord(focusedRecord);
+      const anchor = markerRefs.current[focusedRecord.uid] || null;
+      if (anchor) {
+        setSelectedAnchor(anchor);
+      }
     }
   }, [focusedRecord]);
 
@@ -636,6 +834,7 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
           mapTypeId={layerType}
           colorScheme={isDark ? 'DARK' : 'LIGHT'}
           gestureHandling="greedy"
+          zoomControl={true}
           streetViewControl={true}
           fullscreenControl={true}
           mapTypeControl={false}
@@ -646,11 +845,23 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
           <GoogleMapEffects
             focusedRecord={focusedRecord}
             records={records}
+            layerType={layerType}
             fitAllTrigger={fitAllTrigger}
             streetViewTarget={streetViewTarget}
             onOpenStreetView={onOpenStreetView}
             onCloseStreetView={onCloseStreetView}
             onStreetViewError={onStreetViewError}
+          />
+
+          <BottomRightImageryDock
+            layerType={layerType}
+            streetViewTarget={streetViewTarget}
+            pickedCoords={pickedCoords}
+            searchedPin={searchedPin}
+            focusedRecord={focusedRecord}
+            activeRecord={activeRecord}
+            onChangeLayerType={onChangeLayerType}
+            onOpenStreetView={onOpenStreetView}
           />
 
           <GoogleRouteController
@@ -670,6 +881,13 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
                   key={rec.uid}
                   position={{ lat: rec.latitude!, lng: rec.longitude! }}
                   zIndex={isSelected ? 1000 : 10}
+                  onMarkerMount={(marker) => {
+                    if (marker) {
+                      markerRefs.current[rec.uid] = marker;
+                    } else {
+                      delete markerRefs.current[rec.uid];
+                    }
+                  }}
                   onMarkerClick={(marker) => handleMarkerClick(rec, marker)}
                 >
                   {isNoPipe ? (
