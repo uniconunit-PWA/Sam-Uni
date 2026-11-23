@@ -655,20 +655,11 @@ export async function fetchServerConfig(): Promise<ServerConfigSnapshot | null> 
   }
 }
 
-export async function saveServerConfig(
-  config: SheetConfig,
-  adminToken?: string | null
-): Promise<void> {
+export async function saveServerConfig(config: SheetConfig): Promise<void> {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (adminToken) {
-      headers.Authorization = `Bearer ${adminToken}`;
-    }
     await fetch('/api/config', {
       method: 'PUT',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         spreadsheetId: config.spreadsheetId,
         sheetName: config.sheetName,

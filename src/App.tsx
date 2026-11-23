@@ -66,7 +66,7 @@ import { AdminRequestForm } from './components/AdminRequestForm';
 import { AnalyticsCharts } from './components/AnalyticsCharts';
 import { RequestsTable } from './components/RequestsTable';
 import { AdminBatchWorkspace } from './components/AdminBatchWorkspace';
-import { AdminLoginModal, type AdminSessionPayload } from './components/AdminLoginModal';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { SheetSettingsModal } from './components/SheetSettingsModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { PWAInstallControl, OfflineIndicator } from './components/PWAInstallControl';
@@ -154,8 +154,6 @@ export default function App() {
 
   // Auth & Role states
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminToken, setAdminToken] = useState<string | null>(null);
-  const [canManageSheetConfig, setCanManageSheetConfig] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [googleUserEmail, setGoogleUserEmail] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -259,10 +257,8 @@ export default function App() {
             document.getElementById('map-section')?.scrollIntoView({ behavior: 'smooth' });
           }
         } else if (view === 'settings') {
-          if (isAdmin && canManageSheetConfig) {
+          if (isAdmin) {
             setSettingsModalOpen(true);
-          } else if (isAdmin) {
-            showToast('เฉพาะผู้ใช้ 15563 เท่านั้นที่สามารถเปิดหน้าตั้งค่าชีทได้', 'warning');
           } else {
             setAuthModalOpen(true);
             showToast('กรุณาเข้าสู่ระบบ Admin เพื่อเปิดหน้าตั้งค่าชีท', 'info');
@@ -274,7 +270,7 @@ export default function App() {
     } catch {
       return undefined;
     }
-  }, [isAdmin, canManageSheetConfig, showToast]);
+  }, [isAdmin, showToast]);
 
   // Initialize Firebase Auth listener (with silent token refresh if already consented)
   useEffect(() => {
@@ -1271,9 +1267,6 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setIsAdmin(false);
-                  setAdminToken(null);
-                  setCanManageSheetConfig(false);
-                  setSettingsModalOpen(false);
                   setEditingRecord(null);
                   setPickedCoords(null);
                   showToast('ออกจากโหมดผู้ดูแลระบบแล้ว', 'info');
@@ -1333,42 +1326,38 @@ export default function App() {
                 </span>
               </span>
 
-              {canManageSheetConfig && (
-                <>
-                  <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
-                    ·
-                  </span>
+              <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
+                ·
+              </span>
 
-                  <a
-                    href={`https://docs.google.com/spreadsheets/d/${sheetConfig.spreadsheetId}/edit`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[#0B4DA2] dark:text-[#66B2FF] hover:underline font-medium"
-                  >
-                    <Database className="w-3.5 h-3.5" />
-                    <span>
-                      {sheetConfig.spreadsheetTitle || 'ชีท AppSheet'}
-                      {sheetConfig.sheetName ? ` / ${sheetConfig.sheetName}` : ''}
-                    </span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+              <a
+                href={`https://docs.google.com/spreadsheets/d/${sheetConfig.spreadsheetId}/edit`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[#0B4DA2] dark:text-[#66B2FF] hover:underline font-medium"
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>
+                  {sheetConfig.spreadsheetTitle || 'ชีท AppSheet'}
+                  {sheetConfig.sheetName ? ` / ${sheetConfig.sheetName}` : ''}
+                </span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
 
-                  <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
-                    ·
-                  </span>
+              <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
+                ·
+              </span>
 
-                  <a
-                    href={buildDriveFolderUrl(sheetConfig.driveFolderId)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[#0B4DA2] dark:text-[#66B2FF] hover:underline font-medium"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5" />
-                    <span>โฟลเดอร์ Drive</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </>
-              )}
+              <a
+                href={buildDriveFolderUrl(sheetConfig.driveFolderId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[#0B4DA2] dark:text-[#66B2FF] hover:underline font-medium"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                <span>โฟลเดอร์ Drive</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
 
               <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
                 ·
@@ -1406,16 +1395,14 @@ export default function App() {
                 onSelectEvent={handleSelectNotificationEvent}
               />
 
-              {canManageSheetConfig && (
-                <button
-                  type="button"
-                  onClick={() => setSettingsModalOpen(true)}
-                  className="px-3 py-2 bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1D3350] hover:bg-[#E7F0FC] dark:hover:bg-[#15253D] text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
-                >
-                  <Settings className="w-3.5 h-3.5 text-[#0B4DA2] dark:text-[#66B2FF]" />
-                  <span>ตั้งค่าชีท</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setSettingsModalOpen(true)}
+                className="px-3 py-2 bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1D3350] hover:bg-[#E7F0FC] dark:hover:bg-[#15253D] text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5 text-[#0B4DA2] dark:text-[#66B2FF]" />
+                <span>ตั้งค่าชีท</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1740,7 +1727,6 @@ export default function App() {
                 pendingSyncCount={pendingOverlayCount}
                 isFlushingPending={isFlushingPending}
                 driveFolderId={sheetConfig.driveFolderId}
-                canManageSheetConfig={canManageSheetConfig}
                 resetTrigger={formResetTrigger}
                 onConnectGoogle={() => handleGoogleSignIn(false)}
                 onConnectGoogleForDrive={() => handleGoogleSignIn(true)}
@@ -1845,7 +1831,6 @@ export default function App() {
                 isLoading={isLoading}
                 isAdmin={isAdmin}
                 searchQuery={searchQuery}
-                statusOptions={statusOptions}
                 filterContext={{
                   status: filterStatus,
                   location: [filterMoo ? `หมู่ที่ ${filterMoo}` : '', filterSubdistrict, filterDistrict, filterProvince].filter(Boolean).join(' '),
@@ -1860,7 +1845,6 @@ export default function App() {
                   totalUnfilteredCount: records.length,
                 }}
                 onSearchChange={setSearchQuery}
-                onStatusChange={setFilterStatus}
                 onFocusRecord={(rec) => {
                   setFocusedRecord(rec);
                   document
@@ -1881,7 +1865,6 @@ export default function App() {
                 appsScriptUrl={sheetConfig.appsScriptUrl}
                 accessToken={accessToken}
                 driveFolderId={sheetConfig.driveFolderId}
-                canManageSheetConfig={canManageSheetConfig}
                 onBatchesChange={setCompletedBatches}
                 onNotify={(msg, tone) => showToast(msg, tone)}
               />
@@ -1895,7 +1878,6 @@ export default function App() {
                 appsScriptUrl={sheetConfig.appsScriptUrl}
                 accessToken={accessToken}
                 driveFolderId={sheetConfig.driveFolderId}
-                canManageSheetConfig={canManageSheetConfig}
                 onBatchesChange={setCompletedBatches}
                 onNotify={(msg, tone) => showToast(msg, tone)}
               />
@@ -1932,18 +1914,16 @@ export default function App() {
       <AdminLoginModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onSuccess={(session: AdminSessionPayload) => {
+        onSuccess={() => {
           setIsAdmin(true);
-          setAdminToken(session.token || null);
-          setCanManageSheetConfig(Boolean(session.canManageSheetConfig));
           showToast(
-            `เข้าสู่ระบบ Admin (${session.username}) สำเร็จ เปิดใช้งานส่วนบันทึกคำขอใหม่และแก้ไขข้อมูลแล้ว`,
+            'เข้าสู่ระบบ Admin สำเร็จ เปิดใช้งานส่วนบันทึกคำขอใหม่และแก้ไขข้อมูลแล้ว',
             'success'
           );
         }}
       />
 
-      {isAdmin && canManageSheetConfig && (
+      {isAdmin && (
         <SheetSettingsModal
           open={settingsModalOpen}
           config={sheetConfig}
@@ -1961,7 +1941,7 @@ export default function App() {
           onSave={async (nextConfig) => {
             hasLoadedOnceRef.current = false;
             setSheetConfig(nextConfig);
-            await saveServerConfig(nextConfig, adminToken);
+            await saveServerConfig(nextConfig);
             showToast('บันทึกการตั้งค่า Google Sheets แล้ว กำลังซิงค์ข้อมูล...', 'info');
             if (nextConfig.appsScriptUrl?.trim() && pendingOverlayCount > 0) {
               await flushPendingOverlayToSheet(nextConfig);

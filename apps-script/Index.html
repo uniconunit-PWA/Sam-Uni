@@ -120,14 +120,12 @@
           <span id="conn-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
           <span id="conn-label">กำลังเชื่อมต่อ Google Apps Script...</span>
         </span>
-        <span id="sheet-link-group" class="hidden inline-flex items-center gap-3">
-          <span class="text-slate-300 dark:text-slate-600">·</span>
-          <a href="https://docs.google.com/spreadsheets/d/1iBqlVp4jXeI254idzjvtSltaX7BJ-a40uy-n3XwnAsg/edit" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[#2271B3] dark:text-[#5EA6E0] hover:underline font-medium">
-            <i data-lucide="database" class="w-3.5 h-3.5"></i>
-            <span id="sheet-title-label">ชีท AppSheet</span>
-            <i data-lucide="external-link" class="w-3 h-3"></i>
-          </a>
-        </span>
+        <span class="text-slate-300 dark:text-slate-600">·</span>
+        <a href="https://docs.google.com/spreadsheets/d/1iBqlVp4jXeI254idzjvtSltaX7BJ-a40uy-n3XwnAsg/edit" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[#2271B3] dark:text-[#5EA6E0] hover:underline font-medium">
+          <i data-lucide="database" class="w-3.5 h-3.5"></i>
+          <span id="sheet-title-label">ชีท AppSheet</span>
+          <i data-lucide="external-link" class="w-3 h-3"></i>
+        </a>
         <span class="text-slate-300 dark:text-slate-600">·</span>
         <span id="last-sync-label" class="text-slate-500 dark:text-slate-400 tabular-nums">อัปเดตล่าสุด - (ซิงค์อัตโนมัติทุก 10 วิ)</span>
       </div>
@@ -419,7 +417,7 @@
                 <i data-lucide="camera" class="w-3.5 h-3.5 text-[#2271B3] dark:text-[#5EA6E0]"></i>
                 <span>รูปหน้าบ้าน (1 รูป)</span>
               </label>
-              <a id="f-photo-drive-link" href="https://drive.google.com/drive/folders/1JHld17nuqe0xkd-cd-V8ymR_KofBL-F1?usp=sharing" target="_blank" rel="noopener noreferrer" class="hidden text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline inline-flex items-center gap-1">
+              <a href="https://drive.google.com/drive/folders/1JHld17nuqe0xkd-cd-V8ymR_KofBL-F1?usp=sharing" target="_blank" rel="noopener noreferrer" class="text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline inline-flex items-center gap-1">
                 <span>ดูโฟลเดอร์ Drive</span>
                 <i data-lucide="external-link" class="w-3 h-3"></i>
               </a>
@@ -802,7 +800,6 @@
     let prevRecords = [];
     let hasLoadedOnce = false;
     let isAdmin = false;
-    let adminUsername = null;
     let notifications = [];
     let soundEnabled = true;
     let pendingMutation = null;
@@ -2152,13 +2149,13 @@
 
     const ADMIN_USERS = [
       { u: 'Admin', p: '123456' },
-      { u: '13367', p: '123456' },
-      { u: '16479', p: '123456' },
-      { u: '15563', p: '123456' },
-      { u: '14356', p: '123456' },
-      { u: '15687', p: '123456' },
-      { u: '17191', p: '123456' },
-      { u: '15676', p: '123456' }
+      { u: '13367', p: '13367' },
+      { u: '16479', p: '16479' },
+      { u: '15563', p: '15563' },
+      { u: '14356', p: '14356' },
+      { u: '15687', p: '15687' },
+      { u: '17191', p: '17191' },
+      { u: '15676', p: '15676' }
     ];
 
     function handleAdminLogin(e) {
@@ -2168,10 +2165,6 @@
       const matched = ADMIN_USERS.some(acc => acc.u === u && acc.p === p);
       if (matched) {
         isAdmin = true;
-        adminUsername = u;
-        const isMaster = u === '15563';
-        document.getElementById('sheet-link-group')?.classList.toggle('hidden', !isMaster);
-        document.getElementById('f-photo-drive-link')?.classList.toggle('hidden', !isMaster);
         document.getElementById('login-user').value = '';
         document.getElementById('login-pass').value = '';
         document.getElementById('login-error').classList.add('hidden');
@@ -3052,9 +3045,6 @@
 
     function logoutAdmin() {
       isAdmin = false;
-      adminUsername = null;
-      document.getElementById('sheet-link-group')?.classList.add('hidden');
-      document.getElementById('f-photo-drive-link')?.classList.add('hidden');
       resetForm();
       document.getElementById('admin-login-btn').classList.remove('hidden');
       document.getElementById('admin-logout-btn').classList.add('hidden');

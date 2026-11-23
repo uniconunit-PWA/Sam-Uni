@@ -65,7 +65,6 @@ interface GoogleMapsViewProps {
   onRequestRoute: (record: MeterRequest) => void;
   onOpenStreetView: (lat: number, lng: number) => void;
   onCloseStreetView: () => void;
-  onStreetViewError?: (message: string) => void;
   onRouteComputed: (summary: RouteSummary | null, error?: string) => void;
 }
 
@@ -346,33 +345,12 @@ const GoogleRouteController: React.FC<RouteControllerProps> = ({
   return null;
 };
 
-function computeBearingDeg(
-  fromLat: number,
-  fromLng: number,
-  toLat: number,
-  toLng: number
-): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const toDeg = (rad: number) => (rad * 180) / Math.PI;
-  const phi1 = toRad(fromLat);
-  const phi2 = toRad(toLat);
-  const dLambda = toRad(toLng - fromLng);
-  const y = Math.sin(dLambda) * Math.cos(phi2);
-  const x =
-    Math.cos(phi1) * Math.sin(phi2) -
-    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
-  const theta = Math.atan2(y, x);
-  return (toDeg(theta) + 360) % 360;
-}
-
 interface MapEffectsProps {
   focusedRecord: MeterRequest | null;
   records: MeterRequest[];
   fitAllTrigger: number;
   streetViewTarget: { lat: number; lng: number } | null;
-  onOpenStreetView: (lat: number, lng: number) => void;
   onCloseStreetView: () => void;
-  onStreetViewError?: (message: string) => void;
 }
 
 const GoogleMapEffects: React.FC<MapEffectsProps> = ({
@@ -380,16 +358,11 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
   records,
   fitAllTrigger,
   streetViewTarget,
-  onOpenStreetView,
   onCloseStreetView,
-  onStreetViewError,
 }) => {
   const map = useMap();
-  const streetViewLib = useMapsLibrary('streetView');
   const apiStatus = useApiLoadingStatus();
   const hasAutoFitRef = useRef(false);
-  const streetViewTargetRef = useRef(streetViewTarget);
-  streetViewTargetRef.current = streetViewTarget;
 
   useEffect(() => {
     if (apiStatus === APILoadingStatus.AUTH_FAILURE) {
@@ -436,103 +409,25 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
     map.fitBounds(bounds, 56);
   }, [map, fitAllTrigger, records]);
 
-  // Keep React state in sync when user enters/exits Street View via Pegman or native close button
   useEffect(() => {
     if (!map) return;
     const panorama = map.getStreetView();
     if (!panorama) return;
 
-    const listener = panorama.addListener('visible_changed', () => {
-      const visible = panorama.getVisible();
-      if (!visible && streetViewTargetRef.current) {
-        onCloseStreetView();
-      } else if (visible && !streetViewTargetRef.current) {
-        const pos = panorama.getPosition();
-        if (pos) {
-          onOpenStreetView(pos.lat(), pos.lng());
-        }
-      }
-    });
-
-    return () => listener.remove();
-  }, [map, onOpenStreetView, onCloseStreetView]);
-
-  // Open nearest Street View panorama and aim camera toward target coordinate
-  useEffect(() => {
-    if (!map) return;
-    const panorama = map.getStreetView();
-    if (!panorama) return;
-
-    if (!streetViewTarget) {
-      if (panorama.getVisible()) {
-        panorama.setVisible(false);
-      }
-      return;
-    }
-
-    let cancelled = false;
-
-    const openAtExactTarget = () => {
+    if (streetViewTarget) {
       panorama.setPosition(streetViewTarget);
       panorama.setPov({ heading: 0, pitch: 0 });
       panorama.setVisible(true);
-    };
-
-    if (!streetViewLib?.StreetViewService) {
-      openAtExactTarget();
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const sv = new streetViewLib.StreetViewService();
-    const preference = streetViewLib.StreetViewPreference?.NEAREST;
-
-    const findNearestPanorama = async () => {
-      for (const radius of [120, 500]) {
-        try {
-          const res = await sv.getPanorama({
-            location: streetViewTarget,
-            radius,
-            ...(preference ? { preference } : {}),
-          });
-          if (cancelled) return;
-          const loc = res?.data?.location;
-          if (loc?.pano) {
-            const camLatLng = loc.latLng;
-            const heading = camLatLng
-              ? computeBearingDeg(
-                  camLatLng.lat(),
-                  camLatLng.lng(),
-                  streetViewTarget.lat,
-                  streetViewTarget.lng
-                )
-              : 0;
-            panorama.setPano(loc.pano);
-            panorama.setPov({ heading, pitch: 0 });
-            panorama.setVisible(true);
-            return;
-          }
-        } catch {
-          // Try wider radius before reporting unavailable
+      const listener = panorama.addListener('visible_changed', () => {
+        if (!panorama.getVisible()) {
+          onCloseStreetView();
         }
-      }
-
-      if (!cancelled) {
-        panorama.setVisible(false);
-        onStreetViewError?.(
-          'ไม่พบภาพ Street View ในรัศมี 500 เมตรจากจุดนี้ กรุณาเลือกหมุดใกล้ถนน หรือลากไอคอนคนสีเหลือง (Pegman) ไปวางบนถนน'
-        );
-        onCloseStreetView();
-      }
-    };
-
-    findNearestPanorama();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [map, streetViewLib, streetViewTarget, onCloseStreetView, onStreetViewError]);
+      });
+      return () => listener.remove();
+    } else {
+      panorama.setVisible(false);
+    }
+  }, [map, streetViewTarget, onCloseStreetView]);
 
   return null;
 };
@@ -555,7 +450,6 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
   onRequestRoute,
   onOpenStreetView,
   onCloseStreetView,
-  onStreetViewError,
   onRouteComputed,
 }) => {
   const [selectedAnchor, setSelectedAnchor] =
@@ -601,7 +495,7 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
       apiKey={apiKey}
       language="th"
       region="TH"
-      libraries={['places', 'marker', 'routes', 'streetView']}
+      libraries={['places', 'marker', 'routes']}
     >
       <div className="relative w-full h-full">
         <GooglePlacesSearchControl
@@ -612,22 +506,6 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
             }
           }}
         />
-
-        {!streetViewTarget && (pickedCoords || searchedPin) && (
-          <div className="absolute bottom-3 left-2.5 z-20 flex items-center gap-1.5 bg-white/95 dark:bg-[#111C2B]/95 backdrop-blur-xs border border-slate-200 dark:border-[#263850] rounded-lg shadow-md px-2.5 py-1.5 text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                const target = pickedCoords || searchedPin;
-                if (target) onOpenStreetView(target.lat, target.lng);
-              }}
-              className="inline-flex items-center gap-1.5 font-medium text-[#0B4DA2] dark:text-[#66B2FF] hover:underline"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>ดู Street View จุดที่ปักหมุด</span>
-            </button>
-          </div>
-        )}
 
         <GoogleMap
           mapId="DEMO_MAP_ID"
@@ -648,9 +526,7 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
             records={records}
             fitAllTrigger={fitAllTrigger}
             streetViewTarget={streetViewTarget}
-            onOpenStreetView={onOpenStreetView}
             onCloseStreetView={onCloseStreetView}
-            onStreetViewError={onStreetViewError}
           />
 
           <GoogleRouteController

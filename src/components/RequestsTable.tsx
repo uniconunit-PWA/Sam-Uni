@@ -21,6 +21,7 @@ import { MeterRequest, formatLatLngString, getStatusMeta } from '../types/meter'
 import { StatusSymbol } from './StatusSymbol';
 import {
   ExportFilterContext,
+  ExportScope,
   computeExportAnalytics,
   describeActiveFilters,
   exportFilteredToExcel,
@@ -34,10 +35,8 @@ interface RequestsTableProps {
   isAdmin: boolean;
   embedded?: boolean;
   searchQuery: string;
-  statusOptions: string[];
   filterContext: ExportFilterContext;
   onSearchChange: (q: string) => void;
-  onStatusChange: (status: string) => void;
   onFocusRecord: (record: MeterRequest) => void;
   onEditRecord: (record: MeterRequest) => void;
   onDeleteRecord: (record: MeterRequest) => void;
@@ -56,15 +55,14 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
   isAdmin,
   embedded = false,
   searchQuery,
-  statusOptions,
   filterContext,
   onSearchChange,
-  onStatusChange,
   onFocusRecord,
   onEditRecord,
   onDeleteRecord,
   onExportFeedback,
 }) => {
+  const [exportScope, setExportScope] = useState<ExportScope>('all');
   const [isExporting, setIsExporting] = useState<'excel' | 'pdf' | null>(null);
   const [showSummaryStrip, setShowSummaryStrip] = useState(true);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -133,7 +131,7 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
     if (records.length === 0 || isExporting) return;
     setIsExporting('excel');
     try {
-      const filename = await exportFilteredToExcel(records, filterContext, 'all');
+      const filename = await exportFilteredToExcel(records, filterContext, exportScope);
       onExportFeedback?.(
         `ส่งออกไฟล์ Excel (${filename}) สำเร็จแล้ว (${records.length} รายการ)`,
         'success'
@@ -150,7 +148,7 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
     if (records.length === 0 || isExporting) return;
     setIsExporting('pdf');
     try {
-      const filename = await exportFilteredToPdf(records, filterContext, 'all');
+      const filename = await exportFilteredToPdf(records, filterContext, exportScope);
       onExportFeedback?.(
         `ส่งออกไฟล์ PDF (${filename}) สำเร็จแล้ว (${records.length} รายการ)`,
         'success'
@@ -211,17 +209,14 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
           </div>
 
           <select
-            aria-label="เลือกสถานะคำขอ"
-            value={filterContext.status}
-            onChange={(e) => onStatusChange(e.target.value)}
+            aria-label="เลือกรูปแบบส่วนข้อมูลสำหรับส่งออก"
+            value={exportScope}
+            onChange={(e) => setExportScope(e.target.value as ExportScope)}
             className="w-full sm:w-auto max-w-full bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1D3350] rounded-xl py-2 px-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-[#0B4DA2] dark:focus:border-[#3B8CE2] transition-colors"
           >
-            <option value="">เลือกสถานะ: ทั้งหมด</option>
-            {statusOptions.map((st) => (
-              <option key={st} value={st}>
-                {st}
-              </option>
-            ))}
+            <option value="all">ทั้งหมด (แดชบอร์ด + ตาราง)</option>
+            <option value="by_status">แยกตามสถานะคำขอ</option>
+            <option value="by_area">แยกตามตำบล / พื้นที่</option>
           </select>
 
           <button

@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
 import { ShieldCheck, X } from 'lucide-react';
-import {
-  type AdminSessionPayload,
-  authenticateAdmin,
-} from '../services/adminAuthService';
-
-export type { AdminSessionPayload };
 
 interface AdminLoginModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: (session: AdminSessionPayload) => void;
+  onSuccess: () => void;
 }
+
+const ADMIN_USERS: Array<{ u: string; p: string }> = [
+  { u: 'Admin', p: '123456' },
+  { u: '13367', p: '13367' },
+  { u: '16479', p: '16479' },
+  { u: '15563', p: '15563' },
+  { u: '14356', p: '14356' },
+  { u: '15687', p: '15687' },
+  { u: '17191', p: '17191' },
+  { u: '15676', p: '15676' },
+];
 
 export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   open,
@@ -21,38 +26,22 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!open) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
     const u = username.trim();
     const p = password.trim();
-    if (!u || !p) {
-      setError('กรุณาระบุชื่อผู้ใช้และรหัสผ่าน');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError('');
-    try {
-      const result = await authenticateAdmin(u, p);
-      if (result.ok === false) {
-        setError(result.message);
-        return;
-      }
-
+    const matched = ADMIN_USERS.some((acc) => acc.u === u && acc.p === p);
+    if (matched) {
       setError('');
       setUsername('');
       setPassword('');
-      onSuccess(result.session);
+      onSuccess();
       onClose();
-    } catch {
-      setError('ไม่สามารถตรวจสอบสิทธิ์ผู้ดูแลระบบได้ กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      setError('ชื่อผู้ใช้หรือรหัสผ่านผู้ดูแลระบบไม่ถูกต้อง');
     }
   };
 
@@ -94,10 +83,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               type="text"
               required
               autoFocus
-              disabled={isSubmitting}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="ระบุชื่อผู้ใช้"
+              placeholder="ระบุชื่อผู้ใช้ (เช่น Admin)"
               className="w-full bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1E3350] rounded-lg py-2 px-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-[#0F1E33] focus:border-[#0F62BD] dark:focus:border-[#4EA3FF] focus:ring-2 focus:ring-[#0F62BD]/20"
             />
           </div>
@@ -109,7 +97,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             <input
               type="password"
               required
-              disabled={isSubmitting}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="ระบุรหัสผ่าน"
@@ -126,7 +113,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           <div className="flex items-center justify-end gap-2 pt-2">
             <button
               type="button"
-              disabled={isSubmitting}
               onClick={onClose}
               className="px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1D3350] rounded-lg hover:bg-[#EDF5FD] dark:hover:bg-[#15253D] transition-colors"
             >
@@ -134,10 +120,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-white bg-[#0B4DA2] hover:bg-[#083A7E] dark:bg-[#2B7CD3] dark:hover:bg-[#1F69BC] disabled:opacity-60 rounded-lg transition-colors shadow-xs"
+              className="px-4 py-2 text-xs font-semibold text-white bg-[#0B4DA2] hover:bg-[#083A7E] dark:bg-[#2B7CD3] dark:hover:bg-[#1F69BC] rounded-lg transition-colors shadow-xs"
             >
-              {isSubmitting ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
+              เข้าสู่ระบบ
             </button>
           </div>
         </form>
