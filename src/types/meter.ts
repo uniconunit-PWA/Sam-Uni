@@ -228,7 +228,12 @@ export function getStatusMeta(status: string): {
       borderClass: 'border-emerald-200 dark:border-emerald-800/50',
     };
   }
-  if (s === 'อยู่ระหว่างติดตั้ง' || s === 'กำลังดำเนินการ' || s === 'รอดำเนินการ') {
+  if (
+    s === 'อยู่ระหว่างติดตั้ง' ||
+    s === 'อยู่ระหว่างการติดตั้ง' ||
+    s === 'กำลังดำเนินการ' ||
+    s === 'รอดำเนินการ'
+  ) {
     return {
       label: s || 'อยู่ระหว่างติดตั้ง',
       color: '#d97706',
@@ -286,6 +291,50 @@ export function isNoPipeCancelledStatus(status: string): boolean {
 export function isCompletedMeterStatus(status?: string): boolean {
   const s = (status || '').trim();
   return s === 'ติดตั้งเสร็จสิ้น' || s === 'เสร็จสิ้น' || s === 'ดำเนินการแล้ว';
+}
+
+export function isAwaitingPaymentStatus(status?: string): boolean {
+  const s = (status || '').trim();
+  return s === 'รอชำระเงิน' || s === 'ค้างชำระ';
+}
+
+export function isInstallingStatus(status?: string): boolean {
+  const s = (status || '').trim();
+  return (
+    s === 'อยู่ระหว่างติดตั้ง' ||
+    s === 'อยู่ระหว่างการติดตั้ง' ||
+    s === 'กำลังดำเนินการ' ||
+    s === 'รอดำเนินการ'
+  );
+}
+
+export function isHiddenOnMobileStatus(status?: string): boolean {
+  return (
+    isCompletedMeterStatus(status) ||
+    isAwaitingPaymentStatus(status) ||
+    isInstallingStatus(status)
+  );
+}
+
+export function extractSubdistrictOnly(
+  rec: Pick<MeterRequest, 'subdistrict' | 'locationSummary'>
+): string {
+  const rawSub = (rec.subdistrict || '').trim();
+  if (rawSub) {
+    return rawSub.startsWith('ต.') || rawSub.startsWith('ตำบล')
+      ? rawSub
+      : `ต.${rawSub}`;
+  }
+  const loc = (rec.locationSummary || '').trim();
+  if (loc) {
+    const match = loc.match(/ต\.[^\s]+/);
+    if (match) return match[0];
+    const firstToken = loc.split(/\s+/)[0];
+    if (firstToken && !firstToken.startsWith('อ.') && !firstToken.startsWith('จ.')) {
+      return firstToken.startsWith('ต.') ? firstToken : `ต.${firstToken}`;
+    }
+  }
+  return '-';
 }
 
 export function getNoPipeWarningSvgMarkup(size = 24, withHalo = false): string {

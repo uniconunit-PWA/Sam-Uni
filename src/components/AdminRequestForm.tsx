@@ -259,7 +259,10 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
   const labelCls = 'block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1';
 
   return (
-    <aside className="bg-white dark:bg-[#0F1B2E] border border-[#DCE6F3] dark:border-[#1D3350] rounded-2xl shadow-xs overflow-hidden flex flex-col h-full transition-colors">
+    <aside
+      id="admin-request-form"
+      className="scroll-mt-20 bg-white dark:bg-[#0F1B2E] border border-[#DCE6F3] dark:border-[#1D3350] rounded-2xl shadow-xs overflow-hidden flex flex-col h-full transition-colors"
+    >
       <div className="px-4 sm:px-5 py-3 border-b border-[#08306E]/30 dark:border-[#1D3350] bg-gradient-to-r from-[#0A3A82] to-[#0F62BD] dark:from-[#0C254B] dark:to-[#133B70] text-white flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           {editingRecord ? (
@@ -269,8 +272,8 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
           )}
           <h2 className="font-semibold text-sm truncate">
             {editingRecord
-              ? editingRecord.rowIndex > 0
-                ? `แก้ไขคำขอ (แถวที่ ${editingRecord.rowIndex})`
+              ? editingRecord.fullName?.trim()
+                ? `แก้ไขคำขอ (${editingRecord.fullName.trim()})`
                 : 'แก้ไขคำขอ'
               : 'บันทึกคำขอใหม่'}
           </h2>

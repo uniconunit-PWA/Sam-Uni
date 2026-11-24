@@ -27,7 +27,10 @@ import {
   MeterRequest,
   SheetConfig,
   formatLatLngString,
+  isCompletedMeterStatus,
+  isHiddenOnMobileStatus,
 } from './types/meter';
+import { useIsMobile } from './hooks/useIsMobile';
 import {
   clearAccessToken,
   getAccessToken,
@@ -130,6 +133,8 @@ function normalizeSheetConfig(raw: Partial<SheetConfig>): SheetConfig {
 }
 
 export default function App() {
+  const isMobile = useIsMobile();
+
   // Day / Night Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
@@ -613,10 +618,40 @@ export default function App() {
     return '';
   }, []);
 
+  // Enforce role + mobile visibility rules across all views (before-login hides completed; mobile hides completed/awaiting-payment/installing)
+  const baseVisibleRecords = useMemo(
+    () =>
+      records.filter((rec) => {
+        if (!isAdmin && isCompletedMeterStatus(rec.status)) return false;
+        if (isMobile && isHiddenOnMobileStatus(rec.status)) return false;
+        return true;
+      }),
+    [records, isAdmin, isMobile]
+  );
+
+  // Reset status filter if it becomes hidden when logging out or switching to mobile
+  useEffect(() => {
+    if (!filterStatus) return;
+    if (!isAdmin && isCompletedMeterStatus(filterStatus)) {
+      setFilterStatus('');
+      return;
+    }
+    if (isMobile && isHiddenOnMobileStatus(filterStatus)) {
+      setFilterStatus('');
+    }
+  }, [filterStatus, isAdmin, isMobile]);
+
+  // Force mobile back to table tab since batch tabs are desktop/tablet only
+  useEffect(() => {
+    if (isMobile && adminWorkspaceTab !== 'table') {
+      setAdminWorkspaceTab('table');
+    }
+  }, [isMobile, adminWorkspaceTab]);
+
   // Filtered records
   const filteredRecords = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return records.filter((rec) => {
+    return baseVisibleRecords.filter((rec) => {
       const matchStatus = !filterStatus || rec.status === filterStatus;
 
       const area = extractAreaParts(rec);
@@ -657,7 +692,7 @@ export default function App() {
       );
     });
   }, [
-    records,
+    baseVisibleRecords,
     filterStatus,
     filterProvince,
     filterDistrict,
@@ -670,7 +705,7 @@ export default function App() {
     extractIsoDate,
   ]);
 
-  // Dynamic filter dropdown options derived from real Sheet data
+  // Dynamic filter dropdown options derived from visible Sheet data
   const statusOptions = useMemo(() => {
     const base = [
       'รับคำร้องแล้ว(รอสำรวจ)',
@@ -678,13 +713,17 @@ export default function App() {
       'อยู่ระหว่างติดตั้ง',
       'ติดตั้งเสร็จสิ้น',
       'ไม่มีเส้นท่อ/ยกเลิก',
-    ];
+    ].filter((st) => {
+      if (!isAdmin && isCompletedMeterStatus(st)) return false;
+      if (isMobile && isHiddenOnMobileStatus(st)) return false;
+      return true;
+    });
     const extras = new Set<string>(base);
-    records.forEach((r) => {
+    baseVisibleRecords.forEach((r) => {
       if (r.status) extras.add(r.status);
     });
     return Array.from(extras);
-  }, [records]);
+  }, [baseVisibleRecords, isAdmin, isMobile]);
 
   const { provinceOptions, districtOptions, subdistrictOptions, mooOptions } = useMemo(() => {
     const provinces = new Set<string>();
@@ -692,7 +731,7 @@ export default function App() {
     const subdistricts = new Set<string>();
     const moos = new Set<string>();
 
-    records.forEach((r) => {
+    baseVisibleRecords.forEach((r) => {
       const area = extractAreaParts(r);
       if (area.province) provinces.add(area.province);
       if (area.district && (!filterProvince || area.province === filterProvince)) {
@@ -728,7 +767,7 @@ export default function App() {
         return a.localeCompare(b, 'th');
       }),
     };
-  }, [records, filterProvince, filterDistrict, filterSubdistrict, extractAreaParts]);
+  }, [baseVisibleRecords, filterProvince, filterDistrict, filterSubdistrict, extractAreaParts]);
 
   const completedEligibleUnbatchedCount = useMemo(
     () => getEligibleCompletedUnbatchedRecords(records, completedBatches).eligible.length,
@@ -1211,7 +1250,13 @@ export default function App() {
     } else {
       setPickedCoords(null);
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        document
+          .getElementById('admin-request-form')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    });
   }, []);
 
   const handleDeleteRecord = useCallback((rec: MeterRequest) => {
@@ -1527,7 +1572,7 @@ export default function App() {
 
             <div className="flex flex-wrap items-center gap-2 shrink-0 text-xs">
               <span className="text-sky-100/90 dark:text-slate-300 tabular-nums hidden md:inline">
-                ข้อมูลในตัวกรอง {filteredRecords.length.toLocaleString('th-TH')} / {records.length.toLocaleString('th-TH')} รายการ
+                ข้อมูลในตัวกรอง {filteredRecords.length.toLocaleString('th-TH')} / {baseVisibleRecords.length.toLocaleString('th-TH')} รายการ
               </span>
               {!isAdmin && (
                 <button
@@ -1609,8 +1654,8 @@ export default function App() {
           isDark={isDark}
         />
 
-        {/* Filter Controls (Deep Navy Header Bar + Clean Inputs) */}
-        <section className="bg-white dark:bg-[#0F1B2E] border border-[#DCE6F3] dark:border-[#1D3350] rounded-2xl overflow-hidden shadow-xs transition-colors">
+        {/* Filter Controls (Deep Navy Header Bar + Clean Inputs — hidden on mobile) */}
+        <section className="hidden md:block bg-white dark:bg-[#0F1B2E] border border-[#DCE6F3] dark:border-[#1D3350] rounded-2xl overflow-hidden shadow-xs transition-colors">
           <div className="bg-gradient-to-r from-[#0A3A82] to-[#0F62BD] dark:from-[#0C254B] dark:to-[#133B70] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-sky-200 dark:text-[#7CC4FF] shrink-0" />
@@ -1805,7 +1850,11 @@ export default function App() {
           </div>
 
           {isAdmin && (
-            <div className="lg:col-span-5 min-w-0 flex flex-col">
+            <div
+              className={`${
+                editingRecord ? 'flex' : 'hidden md:flex'
+              } lg:col-span-5 min-w-0 flex-col`}
+            >
               <AdminRequestForm
                 editingRecord={editingRecord}
                 pickedCoords={pickedCoords}
@@ -1881,7 +1930,7 @@ export default function App() {
                   role="tab"
                   aria-selected={adminWorkspaceTab === 'batch_builder'}
                   onClick={() => setAdminWorkspaceTab('batch_builder')}
-                  className={`px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors inline-flex items-center gap-2 whitespace-nowrap ${
+                  className={`hidden md:inline-flex px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors items-center gap-2 whitespace-nowrap ${
                     adminWorkspaceTab === 'batch_builder'
                       ? 'bg-white dark:bg-[#0F1B2E] text-[#0B4DA2] dark:text-[#66B2FF] border-[#0B4DA2] dark:border-[#3B8CE2]'
                       : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#15253D]/60'
@@ -1899,7 +1948,7 @@ export default function App() {
                   role="tab"
                   aria-selected={adminWorkspaceTab === 'batch_archive'}
                   onClick={() => setAdminWorkspaceTab('batch_archive')}
-                  className={`px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors inline-flex items-center gap-2 whitespace-nowrap ${
+                  className={`hidden md:inline-flex px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors items-center gap-2 whitespace-nowrap ${
                     adminWorkspaceTab === 'batch_archive'
                       ? 'bg-white dark:bg-[#0F1B2E] text-[#0B4DA2] dark:text-[#66B2FF] border-[#0B4DA2] dark:border-[#3B8CE2]'
                       : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#15253D]/60'
@@ -1922,7 +1971,7 @@ export default function App() {
               <RequestsTable
                 embedded
                 records={filteredRecords}
-                totalCount={records.length}
+                totalCount={baseVisibleRecords.length}
                 isLoading={isLoading}
                 isAdmin={isAdmin}
                 searchQuery={searchQuery}
@@ -1938,7 +1987,7 @@ export default function App() {
                   dateFrom: filterDateFrom,
                   dateTo: filterDateTo,
                   searchQuery,
-                  totalUnfilteredCount: records.length,
+                  totalUnfilteredCount: baseVisibleRecords.length,
                 }}
                 onSearchChange={setSearchQuery}
                 onStatusChange={setFilterStatus}

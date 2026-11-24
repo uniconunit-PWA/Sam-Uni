@@ -400,6 +400,7 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
   const streetViewLib = useMapsLibrary('streetView');
   const apiStatus = useApiLoadingStatus();
   const hasAutoFitRef = useRef(false);
+  const prevFitAllTriggerRef = useRef(fitAllTrigger);
   const streetViewTargetRef = useRef(streetViewTarget);
   streetViewTargetRef.current = streetViewTarget;
   const openedViaNativePegmanRef = useRef(false);
@@ -457,13 +458,16 @@ const GoogleMapEffects: React.FC<MapEffectsProps> = ({
 
   useEffect(() => {
     if (!map) return;
+    const triggeredByButton = fitAllTrigger !== prevFitAllTriggerRef.current;
+    prevFitAllTriggerRef.current = fitAllTrigger;
+
     const valid = records.filter(
       (r) => r.latitude !== null && r.longitude !== null
     );
     if (valid.length === 0) return;
 
     const shouldAutoFit = !hasAutoFitRef.current;
-    if (!shouldAutoFit && fitAllTrigger === 0) return;
+    if (!shouldAutoFit && !triggeredByButton) return;
     hasAutoFitRef.current = true;
 
     if (valid.length === 1) {

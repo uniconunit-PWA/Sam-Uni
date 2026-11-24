@@ -88,6 +88,7 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
   const userMarkerRef = useRef<L.CircleMarker | null>(null);
   const routeLineRef = useRef<L.Polyline | null>(null);
   const hasAutoFitRef = useRef(false);
+  const prevFitAllTriggerRef = useRef(fitAllTrigger);
 
   const [selectedPopupRecord, setSelectedPopupRecord] = useState<MeterRequest | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -326,13 +327,16 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const triggeredByButton = fitAllTrigger !== prevFitAllTriggerRef.current;
+    prevFitAllTriggerRef.current = fitAllTrigger;
+
     const valid = records.filter(
       (r) => r.latitude !== null && r.longitude !== null
     );
     if (valid.length === 0) return;
 
     const shouldAutoFit = !hasAutoFitRef.current;
-    if (!shouldAutoFit && fitAllTrigger === 0) return;
+    if (!shouldAutoFit && !triggeredByButton) return;
     hasAutoFitRef.current = true;
 
     if (valid.length === 1) {

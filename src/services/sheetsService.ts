@@ -192,7 +192,9 @@ export function mapRowsToMeterRequests(rows: string[][]): {
     }
 
     const locationSummary = buildLocationSummary(explicitLocation, subdistrict, district, province);
-    const phone = getField(raw, ['เบอร์โทร', 'เบอร์ติดต่อ', 'โทรศัพท์', 'Phone']);
+    const phone = getField(raw, ['เบอร์โทร', 'เบอร์ติดต่อ', 'โทรศัพท์', 'Phone'])
+      .replace(/^'+/, '')
+      .trim();
 
     const rawPrice = getField(raw, ['ราคา', 'ยอดชำระ', 'ยอดชำระเงิน', 'Amount', 'Price']).replace(/,/g, '');
     const price = Number.parseFloat(rawPrice) || 0;
@@ -361,13 +363,23 @@ function columnLetter(indexZeroBased: number): string {
   return letter;
 }
 
+export function formatPhoneForSheetInput(phone: string): string {
+  const clean = (phone || '').replace(/^'+/, '').trim();
+  if (!clean) return '';
+  if (/^[0+]/.test(clean) || /^\d[\d\s-]*$/.test(clean)) {
+    return `'${clean}`;
+  }
+  return clean;
+}
+
 /**
  * Maps a MeterFormPayload back onto the exact existing header columns of the sheet.
  */
 export function buildRowValuesForHeaders(
   headers: string[],
   payload: MeterFormPayload,
-  existingRaw?: Record<string, string>
+  existingRaw?: Record<string, string>,
+  forceSheetText = false
 ): string[] {
   const defaultAppSheetHeaders = [
     'เลขที่ RQ',
@@ -424,7 +436,8 @@ export function buildRowValuesForHeaders(
       return locationCombined;
     }
     if (['เบอร์โทร', 'เบอร์ติดต่อ', 'โทรศัพท์', 'phone'].includes(h)) {
-      return payload.phone || '';
+      const rawPhone = (payload.phone || '').replace(/^'+/, '').trim();
+      return forceSheetText ? formatPhoneForSheetInput(rawPhone) : rawPhone;
     }
     if (['ราคา', 'ยอดชำระ', 'ยอดชำระเงิน', 'amount', 'price'].includes(h)) {
       return payload.price !== undefined && payload.price !== null ? String(payload.price) : '0';
@@ -912,7 +925,7 @@ export async function appendSheetRecord(
   payload: MeterFormPayload,
   useServiceAccount = false
 ): Promise<void> {
-  const rowValues = buildRowValuesForHeaders(headers, payload);
+  const rowValues = buildRowValuesForHeaders(headers, payload, undefined, true);
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetId);
 
   if (isInsideGoogleAppsScript()) {
@@ -959,7 +972,12 @@ export async function appendSheetRecord(
     accessToken,
     payload.housePhotoUrl
   );
-  const effectiveRowValues = buildRowValuesForHeaders(effectiveHeaders, payload);
+  const effectiveRowValues = buildRowValuesForHeaders(
+    effectiveHeaders,
+    payload,
+    undefined,
+    true
+  );
 
   const endCol = columnLetter(Math.max(effectiveRowValues.length - 1, 0));
   const range = `'${sheetTitle.replace(/'/g, "''")}'!A:${endCol}`;
@@ -994,7 +1012,7 @@ export async function updateSheetRecord(
   existingRaw?: Record<string, string>,
   useServiceAccount = false
 ): Promise<void> {
-  const rowValues = buildRowValuesForHeaders(headers, payload, existingRaw);
+  const rowValues = buildRowValuesForHeaders(headers, payload, existingRaw, true);
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetId);
 
   if (isInsideGoogleAppsScript()) {
@@ -1047,7 +1065,8 @@ export async function updateSheetRecord(
   const effectiveRowValues = buildRowValuesForHeaders(
     effectiveHeaders,
     payload,
-    existingRaw
+    existingRaw,
+    true
   );
 
   const endCol = columnLetter(Math.max(effectiveRowValues.length - 1, 0));

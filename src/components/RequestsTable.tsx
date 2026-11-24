@@ -17,7 +17,12 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { MeterRequest, formatLatLngString, getStatusMeta } from '../types/meter';
+import {
+  MeterRequest,
+  extractSubdistrictOnly,
+  formatLatLngString,
+  getStatusMeta,
+} from '../types/meter';
 import { StatusSymbol } from './StatusSymbol';
 import {
   ExportFilterContext,
@@ -260,7 +265,7 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
             onClick={handleExportExcel}
             disabled={records.length === 0 || isExporting !== null}
             title="ส่งออกรายการที่กรองพร้อมภาพแดชบอร์ดสรุปเป็น Excel (.xlsx)"
-            className="px-2.5 sm:px-3 py-2 bg-[#059669] hover:bg-[#047857] dark:bg-[#0D9488] dark:hover:bg-[#0F766E] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+            className="hidden md:inline-flex px-2.5 sm:px-3 py-2 bg-[#059669] hover:bg-[#047857] dark:bg-[#0D9488] dark:hover:bg-[#0F766E] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl shadow-xs transition-colors items-center gap-1.5 whitespace-nowrap"
           >
             {isExporting === 'excel' ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -275,7 +280,7 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
             onClick={handleExportPdf}
             disabled={records.length === 0 || isExporting !== null}
             title="ส่งออกรายการที่กรองพร้อมภาพแดชบอร์ดสรุปเป็น PDF (.pdf)"
-            className="px-2.5 sm:px-3 py-2 bg-[#0F62BD] hover:bg-[#0B4DA2] dark:bg-[#2B7CD3] dark:hover:bg-[#2266B5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+            className="hidden md:inline-flex px-2.5 sm:px-3 py-2 bg-[#0F62BD] hover:bg-[#0B4DA2] dark:bg-[#2B7CD3] dark:hover:bg-[#2266B5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl shadow-xs transition-colors items-center gap-1.5 whitespace-nowrap"
           >
             {isExporting === 'pdf' ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -288,7 +293,7 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
           <button
             type="button"
             onClick={() => setShowSummaryStrip((prev) => !prev)}
-            className="px-2.5 py-2 bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1D3350] hover:bg-[#E7F0FC] dark:hover:bg-[#15253D] text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl transition-colors inline-flex items-center gap-1 whitespace-nowrap"
+            className="hidden md:inline-flex px-2.5 py-2 bg-[#F4F8FD] dark:bg-[#091322] border border-[#D5E3F4] dark:border-[#1D3350] hover:bg-[#E7F0FC] dark:hover:bg-[#15253D] text-slate-700 dark:text-slate-200 text-xs font-medium rounded-xl transition-colors items-center gap-1 whitespace-nowrap"
             title={showSummaryStrip ? 'ซ่อนภาพแดชบอร์ดสรุปในตาราง' : 'แสดงภาพแดชบอร์ดสรุปในตาราง'}
           >
             <BarChart2 className="w-3.5 h-3.5 text-[#0B4DA2] dark:text-[#66B2FF]" />
@@ -302,9 +307,9 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
         </div>
       </div>
 
-      {/* Inline Visual Summary Dashboard inside Table Section */}
+      {/* Inline Visual Summary Dashboard inside Table Section (Desktop / Tablet only) */}
       {showSummaryStrip && (
-        <div className="bg-[#F4F8FD] dark:bg-[#0A1424] border-b border-[#DCE6F3] dark:border-[#1D3350] p-3.5 sm:p-5 space-y-3.5 sm:space-y-4 transition-colors">
+        <div className="hidden md:block bg-[#F4F8FD] dark:bg-[#0A1424] border-b border-[#DCE6F3] dark:border-[#1D3350] p-3.5 sm:p-5 space-y-3.5 sm:space-y-4 transition-colors">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-4 rounded-full bg-[#2271B3] dark:bg-[#5EA6E0]" />
@@ -417,21 +422,32 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
         </div>
       )}
 
-      {/* Detailed Table */}
-      <div className="overflow-x-auto max-h-[560px]">
-        <table className="w-full text-left border-collapse">
+      {/* Detailed Table (Compact single-row 4-column layout on mobile without horizontal scroll) */}
+      <div className="overflow-x-hidden md:overflow-x-auto max-h-[560px]">
+        <table className="w-full table-fixed md:table-auto text-left border-collapse">
           <thead className="sticky top-0 bg-[#0B3B82] dark:bg-[#122E57] text-white border-b border-[#092F6A] dark:border-[#1E4478] z-10">
             <tr className="text-[11px] font-semibold tracking-wide text-white/95">
-              <th className="py-3 px-4 whitespace-nowrap">เลขที่ RQ</th>
-              <th className="py-3 px-4 whitespace-nowrap">วันที่ยื่นคำร้อง</th>
-              <th className="py-3 px-4 whitespace-nowrap">ชื่อ - สกุล</th>
-              <th className="py-3 px-4 whitespace-nowrap">ที่อยู่ / หมู่ที่ / พื้นที่</th>
-              <th className="py-3 px-4 whitespace-nowrap">เบอร์โทร</th>
-              <th className="py-3 px-4 text-right whitespace-nowrap">ราคา (บาท)</th>
-              <th className="py-3 px-4 whitespace-nowrap">สถานะ</th>
-              <th className="py-3 px-4 whitespace-nowrap">พิกัด (lat/long)</th>
+              <th className="hidden md:table-cell py-3 px-4 whitespace-nowrap">เลขที่ RQ</th>
+              <th className="hidden md:table-cell py-3 px-4 whitespace-nowrap">วันที่ยื่นคำร้อง</th>
+              <th className="w-[30%] md:w-auto py-2.5 px-2 md:py-3 md:px-4 whitespace-nowrap">
+                ชื่อ - สกุล
+              </th>
+              <th className="w-[22%] md:w-auto py-2.5 px-1.5 md:py-3 md:px-4 whitespace-nowrap">
+                <span className="md:hidden">ตำบล</span>
+                <span className="hidden md:inline">ที่อยู่ / หมู่ที่ / พื้นที่</span>
+              </th>
+              <th className="w-[28%] md:w-auto py-2.5 px-1.5 md:py-3 md:px-4 whitespace-nowrap">
+                เบอร์โทร
+              </th>
+              <th className="hidden md:table-cell py-3 px-4 text-right whitespace-nowrap">
+                ราคา (บาท)
+              </th>
+              <th className="hidden md:table-cell py-3 px-4 whitespace-nowrap">สถานะ</th>
+              <th className="hidden md:table-cell py-3 px-4 whitespace-nowrap">พิกัด (lat/long)</th>
               {isAdmin && (
-                <th className="py-3 px-4 text-center whitespace-nowrap">จัดการ</th>
+                <th className="w-[20%] md:w-auto py-2.5 px-1 md:py-3 md:px-4 text-center whitespace-nowrap">
+                  จัดการ
+                </th>
               )}
             </tr>
           </thead>
@@ -457,69 +473,81 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
               paginatedRecords.map((rec) => {
                 const statusMeta = getStatusMeta(rec.status);
                 const coordsStr = formatLatLngString(rec.latitude, rec.longitude);
+                const subdistrictOnly = extractSubdistrictOnly(rec);
 
                 return (
                   <tr
                     key={rec.uid}
                     className="hover:bg-[#EDF5FC]/45 dark:hover:bg-[#162336] transition-colors"
                   >
-                    <td className="py-3 px-4 font-mono font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap tabular-nums">
+                    <td className="hidden md:table-cell py-3 px-4 font-mono font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap tabular-nums">
                       {rec.rqNumber || `#${rec.rowIndex}`}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap tabular-nums text-slate-600 dark:text-slate-400">
+                    <td className="hidden md:table-cell py-3 px-4 whitespace-nowrap tabular-nums text-slate-600 dark:text-slate-400">
                       {formatDate(rec.requestDate)}
                     </td>
-                    <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                    <td
+                      title={rec.fullName || '-'}
+                      className="py-2 px-2 md:py-3 md:px-4 text-[11px] md:text-xs font-semibold text-slate-900 dark:text-slate-100 truncate md:whitespace-nowrap"
+                    >
                       {rec.fullName || '-'}
                     </td>
-                    <td className="py-3 px-4 max-w-[260px]">
-                      <div className="text-slate-800 dark:text-slate-200 truncate">
-                        {rec.houseNo ? `บ้านเลขที่ ${rec.houseNo} · ` : ''}
-                        {rec.moo ? `หมู่ที่ ${rec.moo}` : '-'}
+                    <td className="py-2 px-1.5 md:py-3 md:px-4 md:max-w-[260px]">
+                      <div
+                        title={subdistrictOnly}
+                        className="md:hidden text-[11px] text-slate-700 dark:text-slate-200 truncate"
+                      >
+                        {subdistrictOnly}
                       </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        {rec.locationSummary || '-'}
+                      <div className="hidden md:block">
+                        <div className="text-slate-800 dark:text-slate-200 truncate">
+                          {rec.houseNo ? `บ้านเลขที่ ${rec.houseNo} · ` : ''}
+                          {rec.moo ? `หมู่ที่ ${rec.moo}` : '-'}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {rec.locationSummary || '-'}
+                        </div>
+                        {rec.housePhotoUrl && /^https?:\/\//i.test(rec.housePhotoUrl) && (
+                          <a
+                            href={rec.housePhotoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline"
+                            title="เปิดดูรูปหน้าบ้านใน Google Drive"
+                          >
+                            <ImageIcon className="w-3 h-3 shrink-0" />
+                            <span>ดูรูปหน้าบ้าน</span>
+                            <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                          </a>
+                        )}
                       </div>
-                      {rec.housePhotoUrl && /^https?:\/\//i.test(rec.housePhotoUrl) && (
-                        <a
-                          href={rec.housePhotoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline"
-                          title="เปิดดูรูปหน้าบ้านใน Google Drive"
-                        >
-                          <ImageIcon className="w-3 h-3 shrink-0" />
-                          <span>ดูรูปหน้าบ้าน</span>
-                          <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                        </a>
-                      )}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap font-mono tabular-nums">
+                    <td className="py-2 px-1 md:py-3 md:px-4 md:whitespace-nowrap font-mono tabular-nums text-[10.5px] md:text-xs">
                       {rec.phone ? (
                         <a
                           href={`tel:${rec.phone}`}
-                          className="text-[#2271B3] dark:text-[#5EA6E0] hover:underline inline-flex items-center gap-1"
+                          className="text-[#2271B3] dark:text-[#5EA6E0] hover:underline inline-flex items-center gap-0.5 md:gap-1 max-w-full"
                         >
-                          <Phone className="w-3 h-3" />
-                          <span>{rec.phone}</span>
+                          <Phone className="w-3 h-3 hidden md:inline shrink-0" />
+                          <span className="truncate">{rec.phone}</span>
                         </a>
                       ) : (
                         <span className="text-slate-400 dark:text-slate-600">-</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap tabular-nums">
+                    <td className="hidden md:table-cell py-3 px-4 text-right font-mono font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap tabular-nums">
                       {rec.price.toLocaleString('th-TH', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className="hidden md:table-cell py-3 px-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">
                         <StatusSymbol status={rec.status} size="sm" />
                         <span>{statusMeta.label}</span>
                       </span>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] tabular-nums">
+                    <td className="hidden md:table-cell py-3 px-4 whitespace-nowrap font-mono text-[11px] tabular-nums">
                       {coordsStr ? (
                         <div className="inline-flex items-center gap-1.5">
                           <button
@@ -546,23 +574,27 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
                       )}
                     </td>
                     {isAdmin && (
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1">
+                      <td className="py-1.5 px-1 md:py-3 md:px-4 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => onEditRecord(rec)}
-                            className="px-2.5 py-1 bg-white dark:bg-[#0F1826] border border-slate-200 dark:border-[#263850] hover:border-[#2271B3] dark:hover:border-[#5EA6E0] hover:bg-[#EDF5FC] dark:hover:bg-[#2271B3]/20 text-[#2271B3] dark:text-[#5EA6E0] rounded-md font-medium inline-flex items-center gap-1 transition-colors"
+                            aria-label="แก้ไขคำขอ"
+                            title="แก้ไข"
+                            className="w-7 h-7 md:w-auto md:h-auto md:px-2.5 md:py-1 bg-white dark:bg-[#0F1826] border border-slate-200 dark:border-[#263850] hover:border-[#2271B3] dark:hover:border-[#5EA6E0] hover:bg-[#EDF5FC] dark:hover:bg-[#2271B3]/20 text-[#2271B3] dark:text-[#5EA6E0] rounded-md font-medium inline-flex items-center justify-center gap-1 transition-colors"
                           >
                             <PenLine className="w-3 h-3" />
-                            <span>แก้ไข</span>
+                            <span className="hidden md:inline">แก้ไข</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => onDeleteRecord(rec)}
-                            className="px-2.5 py-1 bg-white dark:bg-[#0F1826] border border-slate-200 dark:border-[#263850] hover:border-rose-300 dark:hover:border-rose-500/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-md font-medium inline-flex items-center gap-1 transition-colors"
+                            aria-label="ลบคำขอ"
+                            title="ลบ"
+                            className="w-7 h-7 md:w-auto md:h-auto md:px-2.5 md:py-1 bg-white dark:bg-[#0F1826] border border-slate-200 dark:border-[#263850] hover:border-rose-300 dark:hover:border-rose-500/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-md font-medium inline-flex items-center justify-center gap-1 transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />
-                            <span>ลบ</span>
+                            <span className="hidden md:inline">ลบ</span>
                           </button>
                         </div>
                       </td>
@@ -573,7 +605,7 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
             )}
           </tbody>
           {records.length > 0 && (
-            <tfoot className="sticky bottom-0 bg-[#EBF3FD] dark:bg-[#10243F] border-t-2 border-[#0F62BD]/30 dark:border-[#2B7CD3]/40 text-xs font-semibold text-slate-900 dark:text-slate-100">
+            <tfoot className="hidden md:table-footer-group sticky bottom-0 bg-[#EBF3FD] dark:bg-[#10243F] border-t-2 border-[#0F62BD]/30 dark:border-[#2B7CD3]/40 text-xs font-semibold text-slate-900 dark:text-slate-100">
               <tr>
                 <td colSpan={5} className="py-2.5 px-4 text-right text-[#0A3A82] dark:text-[#8CC5F2]">
                   รวมรายการตามเงื่อนไขที่กรอง ({analytics.total.toLocaleString('th-TH')} รายการ)

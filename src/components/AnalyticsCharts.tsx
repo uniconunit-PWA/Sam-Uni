@@ -245,8 +245,8 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
         )}
       </div>
 
-      {/* Subdistrict / Area Status-Colored Stacked Horizontal Bar Chart */}
-      <div className="bg-white dark:bg-[#0F1B2E] border border-[#DCE6F3] dark:border-[#1D3350] rounded-2xl p-4 sm:p-5 min-w-0 shadow-xs transition-colors">
+      {/* Subdistrict / Area Status-Colored Stacked Horizontal Bar Chart (hidden on mobile) */}
+      <div className="hidden md:block bg-white dark:bg-[#0F1B2E] border border-[#DCE6F3] dark:border-[#1D3350] rounded-2xl p-4 sm:p-5 min-w-0 shadow-xs transition-colors">
         <div className="flex items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="w-8 h-8 rounded-xl bg-[#0B4DA2] dark:bg-[#256EC2] text-white flex items-center justify-center shadow-xs shrink-0">

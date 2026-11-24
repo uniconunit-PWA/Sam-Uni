@@ -409,19 +409,28 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
       {/* Legend Bar */}
       <div className="px-3 sm:px-4 py-2 bg-[#F4F8FD] dark:bg-[#0A1424] border-t border-[#DCE6F3] dark:border-[#1D3350] flex flex-wrap items-center gap-x-3.5 sm:gap-x-5 gap-y-1 text-[11px] sm:text-xs text-slate-600 dark:text-slate-300">
         <span className="font-semibold text-slate-700 dark:text-slate-200">สัญลักษณ์:</span>
-        {LEGEND_ITEMS.map((item) => (
-          <span key={item.label} className="inline-flex items-center gap-1.5">
-            {isNoPipeCancelledStatus(item.label) ? (
-              <NoPipeWarningIcon className="w-4 h-4 shrink-0" />
-            ) : (
-              <span
-                className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-[#111C2B] shadow-xs"
-                style={{ backgroundColor: item.color }}
-              />
-            )}
-            <span>{item.label}</span>
-          </span>
-        ))}
+        {LEGEND_ITEMS.map((item) => {
+          const hideOnMobile =
+            item.label === 'อยู่ระหว่างติดตั้ง' || item.label === 'รอชำระเงิน';
+          return (
+            <span
+              key={item.label}
+              className={`${
+                hideOnMobile ? 'hidden md:inline-flex' : 'inline-flex'
+              } items-center gap-1.5`}
+            >
+              {isNoPipeCancelledStatus(item.label) ? (
+                <NoPipeWarningIcon className="w-4 h-4 shrink-0" />
+              ) : (
+                <span
+                  className="w-2.5 h-2.5 rounded-full inline-block border border-white dark:border-[#111C2B] shadow-xs"
+                  style={{ backgroundColor: item.color }}
+                />
+              )}
+              <span>{item.label}</span>
+            </span>
+          );
+        })}
       </div>
     </section>
   );

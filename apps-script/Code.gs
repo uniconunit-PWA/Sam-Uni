@@ -180,6 +180,24 @@ function findRowIndex_(sheet, rowIndex, matchRqNumber) {
   return idx;
 }
 
+function preparePhoneCellsForText_(sheet, headers, rowValues, startRow) {
+  if (!sheet || !Array.isArray(headers) || !Array.isArray(rowValues)) return rowValues;
+  var out = rowValues.slice();
+  var phoneKeys = ['เบอร์โทร', 'เบอร์ติดต่อ', 'โทรศัพท์', 'phone'];
+  for (var c = 0; c < headers.length; c++) {
+    var key = String(headers[c] || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (phoneKeys.indexOf(key) !== -1) {
+      if (startRow >= 2) {
+        sheet.getRange(startRow, c + 1).setNumberFormat('@');
+      }
+      if (c < out.length && out[c] !== null && out[c] !== undefined) {
+        out[c] = String(out[c]).replace(/^'+/, '').trim();
+      }
+    }
+  }
+  return out;
+}
+
 function handleApiAction(data) {
   if (data && data.action === 'setDriveFolderId') {
     var rawFolder = String(data.folderId || '').trim();
@@ -222,7 +240,9 @@ function handleApiAction(data) {
       var addValues = (!addPhotoAdded && Array.isArray(data.rowValues) && data.rowValues.length >= headers.length)
         ? data.rowValues
         : (data.payload ? buildRowFromPayload_(headers, data.payload) : values);
-      sheet.appendRow(addValues);
+      var nextRow = Math.max(sheet.getLastRow() + 1, 2);
+      var preparedAddValues = preparePhoneCellsForText_(sheet, headers, addValues, nextRow);
+      sheet.getRange(nextRow, 1, 1, preparedAddValues.length).setValues([preparedAddValues]);
       SpreadsheetApp.flush();
       return { success: true, action: 'add' };
     }
@@ -235,7 +255,8 @@ function handleApiAction(data) {
       var finalValues = (!updPhotoAdded && Array.isArray(data.rowValues) && data.rowValues.length >= headers.length)
         ? data.rowValues
         : buildRowFromPayload_(headers, data.payload || {}, existingRow);
-      sheet.getRange(targetRow, 1, 1, finalValues.length).setValues([finalValues]);
+      var preparedUpdateValues = preparePhoneCellsForText_(sheet, headers, finalValues, targetRow);
+      sheet.getRange(targetRow, 1, 1, preparedUpdateValues.length).setValues([preparedUpdateValues]);
       SpreadsheetApp.flush();
       return { success: true, action: 'update', rowIndex: targetRow };
     }
