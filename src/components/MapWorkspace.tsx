@@ -25,6 +25,8 @@ import { NoPipeWarningIcon } from './StatusSymbol';
 interface MapWorkspaceProps {
   records: MeterRequest[];
   isAdmin: boolean;
+  canViewPhotosAndDrive?: boolean;
+  lockEditDeleteFromInstalling?: boolean;
   isDark?: boolean;
   apiKeyOverride?: string;
   pickedCoords: { lat: number; lng: number } | null;
@@ -52,6 +54,8 @@ const LEGEND_ITEMS = [
 export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
   records,
   isAdmin,
+  canViewPhotosAndDrive = true,
+  lockEditDeleteFromInstalling = false,
   isDark = false,
   apiKeyOverride = '',
   pickedCoords,
@@ -359,6 +363,8 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
               apiKey={mapsApiKey}
               records={mapRecords}
               isAdmin={isAdmin}
+              canViewPhotosAndDrive={canViewPhotosAndDrive}
+              lockEditDeleteFromInstalling={lockEditDeleteFromInstalling}
               isDark={isDark}
               layerType={layerType}
               onChangeLayerType={setLayerType}
@@ -384,6 +390,8 @@ export const MapWorkspace: React.FC<MapWorkspaceProps> = ({
             <FallbackLeafletMap
               records={mapRecords}
               isAdmin={isAdmin}
+              canViewPhotosAndDrive={canViewPhotosAndDrive}
+              lockEditDeleteFromInstalling={lockEditDeleteFromInstalling}
               isDark={isDark}
               layerType={layerType}
               onChangeLayerType={setLayerType}

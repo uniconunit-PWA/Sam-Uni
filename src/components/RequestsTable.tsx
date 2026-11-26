@@ -22,6 +22,7 @@ import {
   extractSubdistrictOnly,
   formatLatLngString,
   getStatusMeta,
+  isLockedFromInstallingStatus,
 } from '../types/meter';
 import { StatusSymbol } from './StatusSymbol';
 import {
@@ -37,6 +38,8 @@ interface RequestsTableProps {
   totalCount: number;
   isLoading: boolean;
   isAdmin: boolean;
+  canViewPhotosAndDrive?: boolean;
+  lockEditDeleteFromInstalling?: boolean;
   embedded?: boolean;
   searchQuery: string;
   statusOptions?: string[];
@@ -66,6 +69,8 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
   totalCount,
   isLoading,
   isAdmin,
+  canViewPhotosAndDrive = true,
+  lockEditDeleteFromInstalling = false,
   embedded = false,
   searchQuery,
   statusOptions,
@@ -474,6 +479,8 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
                 const statusMeta = getStatusMeta(rec.status);
                 const coordsStr = formatLatLngString(rec.latitude, rec.longitude);
                 const subdistrictOnly = extractSubdistrictOnly(rec);
+                const isRowMutationLocked =
+                  lockEditDeleteFromInstalling && isLockedFromInstallingStatus(rec.status);
 
                 return (
                   <tr
@@ -507,19 +514,21 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                           {rec.locationSummary || '-'}
                         </div>
-                        {rec.housePhotoUrl && /^https?:\/\//i.test(rec.housePhotoUrl) && (
-                          <a
-                            href={rec.housePhotoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline"
-                            title="เปิดดูรูปหน้าบ้านใน Google Drive"
-                          >
-                            <ImageIcon className="w-3 h-3 shrink-0" />
-                            <span>ดูรูปหน้าบ้าน</span>
-                            <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                          </a>
-                        )}
+                        {canViewPhotosAndDrive &&
+                          rec.housePhotoUrl &&
+                          /^https?:\/\//i.test(rec.housePhotoUrl) && (
+                            <a
+                              href={rec.housePhotoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#2271B3] dark:text-[#5EA6E0] hover:underline"
+                              title="เปิดดูรูปหน้าบ้านใน Google Drive"
+                            >
+                              <ImageIcon className="w-3 h-3 shrink-0" />
+                              <span>ดูรูปหน้าบ้าน</span>
+                              <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                            </a>
+                          )}
                       </div>
                     </td>
                     <td className="py-2 px-1 md:py-3 md:px-4 md:whitespace-nowrap font-mono tabular-nums text-[10.5px] md:text-xs">
@@ -578,20 +587,34 @@ export const RequestsTable: React.FC<RequestsTableProps> = ({
                         <div className="inline-flex items-center justify-center gap-1">
                           <button
                             type="button"
-                            onClick={() => onEditRecord(rec)}
+                            disabled={isRowMutationLocked}
+                            onClick={() => {
+                              if (!isRowMutationLocked) onEditRecord(rec);
+                            }}
                             aria-label="แก้ไขคำขอ"
-                            title="แก้ไข"
-                            className="w-7 h-7 md:w-auto md:h-auto md:px-2.5 md:py-1 bg-white dark:bg-[#0F1826] border border-slate-200 dark:border-[#263850] hover:border-[#2271B3] dark:hover:border-[#5EA6E0] hover:bg-[#EDF5FC] dark:hover:bg-[#2271B3]/20 text-[#2271B3] dark:text-[#5EA6E0] rounded-md font-medium inline-flex items-center justify-center gap-1 transition-colors"
+                            title={
+                              isRowMutationLocked
+                                ? 'ไม่สามารถแก้ไขได้ตั้งแต่สถานะอยู่ระหว่างการติดตั้งเป็นต้นไป'
+                                : 'แก้ไข'
+                            }
+                            className="w-7 h-7 md:w-auto md:h-auto md:px-2.5 md:py-1 bg-white dark:bg-[#0F1826] border border-slate-200 dark:border-[#263850] hover:border-[#2271B3] dark:hover:border-[#5EA6E0] hover:bg-[#EDF5FC] dark:hover:bg-[#2271B3]/20 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-white dark:disabled:hover:bg-[#0F1826] text-[#2271B3] dark:text-[#5EA6E0] rounded-md font-medium inline-flex items-center justify-center gap-1 transition-colors"
                           >
                             <PenLine className="w-3 h-3" />
                             <span className="hidden md:inline">แก้ไข</span>
                           </button>
                           <button
                             type="button"
-                            onClick={() => onDeleteRecord(rec)}
+                            disabled={isRowMutationLocked}
+                            onClick={() => {
+                              if (!isRowMutationLocked) onDeleteRecord(rec);
+                            }}
                             aria-label="ลบคำขอ"
-                            title="ลบ"
-                            className="w-7 h-7 md:w-auto md:h-auto md:px-2.5 md:py-1 bg-white dark:bg-[#0F1826] border border-slate-200 dark:border-[#263850] hover:border-rose-300 dark:hover:border-rose-500/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-md font-medium inline-flex items-center justify-center gap-1 transition-colors"
+                            title={
+                              isRowMutationLocked
+                                ? 'ไม่สามารถลบได้ตั้งแต่สถานะอยู่ระหว่างการติดตั้งเป็นต้นไป'
+                                : 'ลบ'
+                            }
+                            className="w-7 h-7 md:w-auto md:h-auto md:px-2.5 md:py-1 bg-white dark:bg-[#0F1826] border border-slate-200 dark:border-[#263850] hover:border-rose-300 dark:hover:border-rose-500/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-white dark:disabled:hover:bg-[#0F1826] text-rose-600 dark:text-rose-400 rounded-md font-medium inline-flex items-center justify-center gap-1 transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />
                             <span className="hidden md:inline">ลบ</span>

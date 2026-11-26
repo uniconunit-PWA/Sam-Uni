@@ -276,6 +276,9 @@ interface AdminAccountRecord {
   salt: string;
   hash: string;
   canManageSheetConfig: boolean;
+  canViewBatches: boolean;
+  canViewPhotosAndDrive: boolean;
+  lockEditDeleteFromInstalling: boolean;
 }
 
 const ADMIN_ACCOUNTS: AdminAccountRecord[] = [
@@ -284,48 +287,81 @@ const ADMIN_ACCOUNTS: AdminAccountRecord[] = [
     salt: '0282a822f630c683d329a1c39cc86486',
     hash: '0dd3b135b43e5e1135e1aadab02a4ca95261fe7ba9e176f06ac251ae843a66169e71e85bf0d6f8de08f5c552317242486366777a050d4bd8fa46ba7ca9b1438e',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '13367',
     salt: '23c523b8c0976685c95b1eeaf32628fa',
     hash: '706409d1c1da4f3a678d8351a1bb3bd4211168b00d8cc79d7cb69753ae720e42532f638d1fa5be34ab2d1e47516f26cd01243411ba12dfb2f6e8f4bf3e98ee54',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '16479',
     salt: '2abc72cb1516e1d2884564fce2dc0a8e',
     hash: '7efaaf132df64415ecaf1b05c77343992bcf5c732800a8dc17d29a71e71f6ec243fbc2b6ec723df9e9c66418760195f43ae80a76473f223ecd40b6f8e6f6d9f0',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '15563',
     salt: '38a861a34df70e0d1039245e7b746b79',
     hash: '7829a85f5faa5f8e862879c0533a48fa5a62d36b8b5a634561ca61e81559a06f901b4c1b1cb711d08e7851d78f7d34b95f7d1e206bec7683cafb52343f76f332',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '14356',
     salt: '0bb6c99d461869ea2278059217e95185',
     hash: 'fa08c5827f1a38fadf43eecb711d853d970e1572fb31e7c9704b9a1724eaf0a1634354d0e45a05eee3840f58f8b42d8ae811a81f75a258c376055e798c8a83f6',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '15687',
     salt: '45025c66ee18bb6c1637804e017c3079',
     hash: 'c68dd90083a96a519284db03d1d1f471feab552610e10a0b720c24e93177e4985dd449107d1e4dfc7eeb18194a1a12fb26a8dfde457c87047d34c3ceb0dfb7ca',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '17191',
     salt: 'fcf30bb9d4fc29cdf89846c0aced760d',
     hash: '25c74b08c12101f97fb0e0677e05420da5bc7a71f7efe322cacb722046ed1348a96f4aff279a24f991debd3493dc4e8d838ce94929786d494ec394a0a241eca9',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '15676',
     salt: '282253cbdeff37c337bd4184bf4ec150',
     hash: 'cf91b5d1ca58aacb1fdc4f9492de8eab8dc7d4ad0963fd1dc91f1069febfda34eff5105aeb8f46532bf9b671807e4f7e3d2165227d55f330d603f6f8dfc4fcc9',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
+  },
+  {
+    u: '5512018',
+    salt: 'd1fe7abf809310fecbaba635035b506e',
+    hash: 'e151a9fdd15915310a7546092bff38702c615c320b08758443eae6dc14fdaa18d86f5d5dfdea782aa0f2265952cae5ef5e17889f00c1640a3942b7e85d45c31c',
+    canManageSheetConfig: true,
+    canViewBatches: false,
+    canViewPhotosAndDrive: false,
+    lockEditDeleteFromInstalling: true,
   },
 ];
 
@@ -357,11 +393,14 @@ function verifyPlainOverride(input: string, envValue: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-function issueAdminToken(username: string, canManageSheetConfig: boolean): string {
+function issueAdminToken(account: AdminAccountRecord): string {
   const payload = base64UrlEncode(
     JSON.stringify({
-      u: username,
-      master: canManageSheetConfig,
+      u: account.u,
+      master: account.canManageSheetConfig,
+      batches: account.canViewBatches,
+      photos: account.canViewPhotosAndDrive,
+      lockInst: account.lockEditDeleteFromInstalling,
       exp: Date.now() + ADMIN_TOKEN_TTL_MS,
     })
   );
@@ -374,9 +413,13 @@ function issueAdminToken(username: string, canManageSheetConfig: boolean): strin
   return `${payload}.${sig}`;
 }
 
-function verifyAdminSession(
-  req: express.Request
-): { username: string; canManageSheetConfig: boolean } | null {
+function verifyAdminSession(req: express.Request): {
+  username: string;
+  canManageSheetConfig: boolean;
+  canViewBatches: boolean;
+  canViewPhotosAndDrive: boolean;
+  lockEditDeleteFromInstalling: boolean;
+} | null {
   const authHeader = req.headers.authorization || '';
   if (!authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.slice('Bearer '.length).trim();
@@ -405,13 +448,27 @@ function verifyAdminSession(
   try {
     const decoded = JSON.parse(
       Buffer.from(payload, 'base64url').toString('utf8')
-    ) as { u?: string; master?: boolean; exp?: number };
+    ) as {
+      u?: string;
+      master?: boolean;
+      batches?: boolean;
+      photos?: boolean;
+      lockInst?: boolean;
+      exp?: number;
+    };
     if (!decoded?.u || typeof decoded.exp !== 'number' || decoded.exp < Date.now()) {
       return null;
     }
+    const isLimited5512018 = decoded.u === '5512018';
     return {
       username: decoded.u,
       canManageSheetConfig: Boolean(decoded.master),
+      canViewBatches:
+        typeof decoded.batches === 'boolean' ? decoded.batches : !isLimited5512018,
+      canViewPhotosAndDrive:
+        typeof decoded.photos === 'boolean' ? decoded.photos : !isLimited5512018,
+      lockEditDeleteFromInstalling:
+        typeof decoded.lockInst === 'boolean' ? decoded.lockInst : isLimited5512018,
     };
   } catch {
     return null;
@@ -465,12 +522,15 @@ async function startServer() {
     }
 
     const canManageSheetConfig = account.canManageSheetConfig;
-    const token = issueAdminToken(account.u, canManageSheetConfig);
+    const token = issueAdminToken(account);
     res.json({
       ok: true,
       token,
       username: account.u,
       canManageSheetConfig,
+      canViewBatches: account.canViewBatches,
+      canViewPhotosAndDrive: account.canViewPhotosAndDrive,
+      lockEditDeleteFromInstalling: account.lockEditDeleteFromInstalling,
     });
   });
 
@@ -484,6 +544,9 @@ async function startServer() {
       authenticated: true,
       username: session.username,
       canManageSheetConfig: session.canManageSheetConfig,
+      canViewBatches: session.canViewBatches,
+      canViewPhotosAndDrive: session.canViewPhotosAndDrive,
+      lockEditDeleteFromInstalling: session.lockEditDeleteFromInstalling,
     });
   });
 

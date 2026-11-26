@@ -27,6 +27,7 @@ import {
   MeterRequest,
   RouteSummary,
   getStatusMeta,
+  isLockedFromInstallingStatus,
   isNoPipeCancelledStatus,
   parseLatLngPair,
 } from '../types/meter';
@@ -51,6 +52,8 @@ interface GoogleMapsViewProps {
   apiKey: string;
   records: MeterRequest[];
   isAdmin: boolean;
+  canViewPhotosAndDrive?: boolean;
+  lockEditDeleteFromInstalling?: boolean;
   isDark?: boolean;
   layerType: MapLayerType;
   onChangeLayerType?: (layer: MapLayerType) => void;
@@ -735,6 +738,8 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
   apiKey,
   records,
   isAdmin,
+  canViewPhotosAndDrive = true,
+  lockEditDeleteFromInstalling = false,
   isDark = false,
   layerType,
   onChangeLayerType,
@@ -1022,16 +1027,18 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
                       </span>
                     </div>
 
-                    <HousePhotoPreview
-                      url={activeRecord.housePhotoUrl}
-                      alt={
-                        activeRecord.fullName
-                          ? `รูปหน้าบ้าน ${activeRecord.fullName}`
-                          : 'รูปหน้าบ้าน'
-                      }
-                      lightSurface
-                      heightClass="h-24 sm:h-28"
-                    />
+                    {canViewPhotosAndDrive && (
+                      <HousePhotoPreview
+                        url={activeRecord.housePhotoUrl}
+                        alt={
+                          activeRecord.fullName
+                            ? `รูปหน้าบ้าน ${activeRecord.fullName}`
+                            : 'รูปหน้าบ้าน'
+                        }
+                        lightSurface
+                        heightClass="h-24 sm:h-28"
+                      />
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-200">
@@ -1068,16 +1075,20 @@ export const GoogleMapsView: React.FC<GoogleMapsViewProps> = ({
                       <span>เปิดแอป Google Maps</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => onEditRecord(activeRecord)}
-                        className="text-[11px] font-semibold inline-flex items-center gap-1 text-amber-700 hover:text-amber-800"
-                      >
-                        <PenLine className="w-3 h-3" />
-                        <span>แก้ไข</span>
-                      </button>
-                    )}
+                    {isAdmin &&
+                      !(
+                        lockEditDeleteFromInstalling &&
+                        isLockedFromInstallingStatus(activeRecord.status)
+                      ) && (
+                        <button
+                          type="button"
+                          onClick={() => onEditRecord(activeRecord)}
+                          className="text-[11px] font-semibold inline-flex items-center gap-1 text-amber-700 hover:text-amber-800"
+                        >
+                          <PenLine className="w-3 h-3" />
+                          <span>แก้ไข</span>
+                        </button>
+                      )}
                   </div>
                 </div>
               </InfoWindow>

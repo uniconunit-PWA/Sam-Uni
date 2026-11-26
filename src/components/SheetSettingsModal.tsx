@@ -44,6 +44,7 @@ interface SheetSettingsModalProps {
   onDisconnectGoogle: () => void;
   onClose: () => void;
   onSave: (nextConfig: SheetConfig) => void;
+  canViewPhotosAndDrive?: boolean;
 }
 
 const DEFAULT_SHEET_ID = '1iBqlVp4jXeI254idzjvtSltaX7BJ-a40uy-n3XwnAsg';
@@ -308,6 +309,7 @@ export const SheetSettingsModal: React.FC<SheetSettingsModalProps> = ({
   onDisconnectGoogle,
   onClose,
   onSave,
+  canViewPhotosAndDrive = true,
 }) => {
   const [sheetInput, setSheetInput] = useState(config.spreadsheetId);
   const [sheetName, setSheetName] = useState(config.sheetName);
@@ -531,15 +533,17 @@ export const SheetSettingsModal: React.FC<SheetSettingsModalProps> = ({
                     ใช้ชีทในโฟลเดอร์เริ่มต้น
                   </button>
                 )}
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-[#2271B3] dark:text-[#5EA6E0] hover:underline inline-flex items-center gap-1"
-                >
-                  <span>เปิดชีท</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                {canViewPhotosAndDrive && (
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#2271B3] dark:text-[#5EA6E0] hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>เปิดชีท</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
             </div>
             <input
@@ -557,6 +561,7 @@ export const SheetSettingsModal: React.FC<SheetSettingsModalProps> = ({
             )}
           </div>
 
+          {canViewPhotosAndDrive && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -638,6 +643,7 @@ export const SheetSettingsModal: React.FC<SheetSettingsModalProps> = ({
               </div>
             )}
           </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>

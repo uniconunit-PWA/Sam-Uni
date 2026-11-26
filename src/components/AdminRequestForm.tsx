@@ -36,6 +36,7 @@ interface AdminRequestFormProps {
   isFlushingPending: boolean;
   driveFolderId?: string;
   canManageSheetConfig?: boolean;
+  canViewPhotosAndDrive?: boolean;
   resetTrigger?: number;
   onConnectGoogle: () => void;
   onConnectGoogleForDrive?: () => void;
@@ -86,6 +87,7 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
   isFlushingPending,
   driveFolderId,
   canManageSheetConfig = false,
+  canViewPhotosAndDrive = true,
   resetTrigger,
   onConnectGoogle,
   onConnectGoogleForDrive,
@@ -590,6 +592,7 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
           </div>
         </div>
 
+        {canViewPhotosAndDrive && (
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 inline-flex items-center gap-1.5">
@@ -761,6 +764,7 @@ export const AdminRequestForm: React.FC<AdminRequestFormProps> = ({
             <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{photoError}</p>
           )}
         </div>
+        )}
 
         <div>
           <label className={labelCls}>

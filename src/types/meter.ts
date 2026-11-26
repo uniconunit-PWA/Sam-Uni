@@ -316,6 +316,14 @@ export function isHiddenOnMobileStatus(status?: string): boolean {
   );
 }
 
+export function isLockedFromInstallingStatus(status?: string): boolean {
+  return (
+    isInstallingStatus(status) ||
+    isCompletedMeterStatus(status) ||
+    isNoPipeCancelledStatus(status || '')
+  );
+}
+
 export function extractSubdistrictOnly(
   rec: Pick<MeterRequest, 'subdistrict' | 'locationSummary'>
 ): string {

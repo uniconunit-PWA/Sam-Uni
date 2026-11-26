@@ -29,6 +29,7 @@ import {
   formatLatLngString,
   isCompletedMeterStatus,
   isHiddenOnMobileStatus,
+  isLockedFromInstallingStatus,
 } from './types/meter';
 import { useIsMobile } from './hooks/useIsMobile';
 import {
@@ -166,6 +167,9 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
   const [canManageSheetConfig, setCanManageSheetConfig] = useState(false);
+  const [canViewBatches, setCanViewBatches] = useState(true);
+  const [canViewPhotosAndDrive, setCanViewPhotosAndDrive] = useState(true);
+  const [lockEditDeleteFromInstalling, setLockEditDeleteFromInstalling] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [googleUserEmail, setGoogleUserEmail] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -641,12 +645,12 @@ export default function App() {
     }
   }, [filterStatus, isAdmin, isMobile]);
 
-  // Force mobile back to table tab since batch tabs are desktop/tablet only
+  // Force mobile or restricted accounts back to table tab since batch tabs are unavailable
   useEffect(() => {
-    if (isMobile && adminWorkspaceTab !== 'table') {
+    if ((isMobile || !canViewBatches) && adminWorkspaceTab !== 'table') {
       setAdminWorkspaceTab('table');
     }
-  }, [isMobile, adminWorkspaceTab]);
+  }, [isMobile, canViewBatches, adminWorkspaceTab]);
 
   // Filtered records
   const filteredRecords = useMemo(() => {
@@ -775,7 +779,7 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !canViewBatches) return;
     let active = true;
     fetchCompletedBatches(sheetConfig.spreadsheetId, {
       accessToken,
@@ -786,7 +790,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [isAdmin, sheetConfig.spreadsheetId, accessToken, sheetConfig.driveFolderId]);
+  }, [isAdmin, canViewBatches, sheetConfig.spreadsheetId, accessToken, sheetConfig.driveFolderId]);
 
   // Geolocation helper
   const handleLocateUser = useCallback(() => {
@@ -990,6 +994,17 @@ export default function App() {
     photoFile: HousePhotoPayload | null
   ) => {
     if (editingRowIndex !== null) {
+      if (
+        lockEditDeleteFromInstalling &&
+        editingRecord &&
+        isLockedFromInstallingStatus(editingRecord.status)
+      ) {
+        showToast(
+          'บัญชีนี้ไม่สามารถแก้ไขคำขอที่มีสถานะอยู่ระหว่างการติดตั้งเป็นต้นไปได้',
+          'warning'
+        );
+        return;
+      }
       // Mandatory user confirmation dialog before mutating existing data
       setPendingConfirm({
         mode: 'update',
@@ -1118,6 +1133,19 @@ export default function App() {
         sheetConfig.appsScriptUrl?.trim() || isInsideGoogleAppsScript()
       );
       const targetRecord = pendingConfirm.record;
+      if (
+        lockEditDeleteFromInstalling &&
+        targetRecord &&
+        isLockedFromInstallingStatus(targetRecord.status)
+      ) {
+        showToast(
+          'บัญชีนี้ไม่สามารถแก้ไขหรือลบคำขอที่มีสถานะอยู่ระหว่างการติดตั้งเป็นต้นไปได้',
+          'warning'
+        );
+        setPendingConfirm(null);
+        setIsMutating(false);
+        return;
+      }
       const targetUid = targetRecord?.uid || `row:${pendingConfirm.rowIndex}`;
       const isLocalOnlyRecord = Boolean(
         pendingConfirm.rowIndex <= 0 || targetUid.startsWith('local:')
@@ -1242,30 +1270,50 @@ export default function App() {
     }
   };
 
-  const handleEditRecord = useCallback((rec: MeterRequest) => {
-    setEditingRecord(rec);
-    if (rec.latitude !== null && rec.longitude !== null) {
-      setPickedCoords({ lat: rec.latitude, lng: rec.longitude });
-      setFocusedRecord(rec);
-    } else {
-      setPickedCoords(null);
-    }
-    window.requestAnimationFrame(() => {
-      window.setTimeout(() => {
-        document
-          .getElementById('admin-request-form')
-          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 60);
-    });
-  }, []);
+  const handleEditRecord = useCallback(
+    (rec: MeterRequest) => {
+      if (lockEditDeleteFromInstalling && isLockedFromInstallingStatus(rec.status)) {
+        showToast(
+          'บัญชีนี้ไม่สามารถแก้ไขคำขอที่มีสถานะอยู่ระหว่างการติดตั้งเป็นต้นไปได้',
+          'warning'
+        );
+        return;
+      }
+      setEditingRecord(rec);
+      if (rec.latitude !== null && rec.longitude !== null) {
+        setPickedCoords({ lat: rec.latitude, lng: rec.longitude });
+        setFocusedRecord(rec);
+      } else {
+        setPickedCoords(null);
+      }
+      window.requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          document
+            .getElementById('admin-request-form')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+      });
+    },
+    [lockEditDeleteFromInstalling, showToast]
+  );
 
-  const handleDeleteRecord = useCallback((rec: MeterRequest) => {
-    setPendingConfirm({
-      mode: 'delete',
-      rowIndex: rec.rowIndex,
-      record: rec,
-    });
-  }, []);
+  const handleDeleteRecord = useCallback(
+    (rec: MeterRequest) => {
+      if (lockEditDeleteFromInstalling && isLockedFromInstallingStatus(rec.status)) {
+        showToast(
+          'บัญชีนี้ไม่สามารถลบคำขอที่มีสถานะอยู่ระหว่างการติดตั้งเป็นต้นไปได้',
+          'warning'
+        );
+        return;
+      }
+      setPendingConfirm({
+        mode: 'delete',
+        rowIndex: rec.rowIndex,
+        record: rec,
+      });
+    },
+    [lockEditDeleteFromInstalling, showToast]
+  );
 
   const handleSelectNotificationEvent = useCallback(
     (ev: DataChangeEvent) => {
@@ -1399,6 +1447,9 @@ export default function App() {
                   setIsAdmin(false);
                   setAdminToken(null);
                   setCanManageSheetConfig(false);
+                  setCanViewBatches(true);
+                  setCanViewPhotosAndDrive(true);
+                  setLockEditDeleteFromInstalling(false);
                   setSettingsModalOpen(false);
                   setEditingRecord(null);
                   setPickedCoords(null);
@@ -1459,7 +1510,7 @@ export default function App() {
                 </span>
               </span>
 
-              {canManageSheetConfig && (
+              {canManageSheetConfig && canViewPhotosAndDrive && (
                 <>
                   <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
                     ·
@@ -1838,6 +1889,8 @@ export default function App() {
             <MapWorkspace
               records={filteredRecords}
               isAdmin={isAdmin}
+              canViewPhotosAndDrive={!isAdmin || canViewPhotosAndDrive}
+              lockEditDeleteFromInstalling={isAdmin && lockEditDeleteFromInstalling}
               isDark={isDark}
               apiKeyOverride={serverMapsApiKey}
               pickedCoords={pickedCoords}
@@ -1871,6 +1924,7 @@ export default function App() {
                 isFlushingPending={isFlushingPending}
                 driveFolderId={sheetConfig.driveFolderId}
                 canManageSheetConfig={canManageSheetConfig}
+                canViewPhotosAndDrive={canViewPhotosAndDrive}
                 resetTrigger={formResetTrigger}
                 onConnectGoogle={() => handleGoogleSignIn(false)}
                 onConnectGoogleForDrive={() => handleGoogleSignIn(true)}
@@ -1925,41 +1979,45 @@ export default function App() {
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={adminWorkspaceTab === 'batch_builder'}
-                  onClick={() => setAdminWorkspaceTab('batch_builder')}
-                  className={`hidden md:inline-flex px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors items-center gap-2 whitespace-nowrap ${
-                    adminWorkspaceTab === 'batch_builder'
-                      ? 'bg-white dark:bg-[#0F1B2E] text-[#0B4DA2] dark:text-[#66B2FF] border-[#0B4DA2] dark:border-[#3B8CE2]'
-                      : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#15253D]/60'
-                  }`}
-                >
-                  <PackageCheck className="w-3.5 h-3.5" />
-                  <span>รวมชุดติดตั้งเสร็จสิ้น</span>
-                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300">
-                    {completedEligibleUnbatchedCount.toLocaleString('th-TH')}
-                  </span>
-                </button>
+                {canViewBatches && (
+                  <>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={adminWorkspaceTab === 'batch_builder'}
+                      onClick={() => setAdminWorkspaceTab('batch_builder')}
+                      className={`hidden md:inline-flex px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors items-center gap-2 whitespace-nowrap ${
+                        adminWorkspaceTab === 'batch_builder'
+                          ? 'bg-white dark:bg-[#0F1B2E] text-[#0B4DA2] dark:text-[#66B2FF] border-[#0B4DA2] dark:border-[#3B8CE2]'
+                          : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#15253D]/60'
+                      }`}
+                    >
+                      <PackageCheck className="w-3.5 h-3.5" />
+                      <span>รวมชุดติดตั้งเสร็จสิ้น</span>
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300">
+                        {completedEligibleUnbatchedCount.toLocaleString('th-TH')}
+                      </span>
+                    </button>
 
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={adminWorkspaceTab === 'batch_archive'}
-                  onClick={() => setAdminWorkspaceTab('batch_archive')}
-                  className={`hidden md:inline-flex px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors items-center gap-2 whitespace-nowrap ${
-                    adminWorkspaceTab === 'batch_archive'
-                      ? 'bg-white dark:bg-[#0F1B2E] text-[#0B4DA2] dark:text-[#66B2FF] border-[#0B4DA2] dark:border-[#3B8CE2]'
-                      : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#15253D]/60'
-                  }`}
-                >
-                  <Archive className="w-3.5 h-3.5" />
-                  <span>ที่เก็บข้อมูลชุดงาน</span>
-                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-[#E8F1FC] dark:bg-[#152B4A] text-[#0B4DA2] dark:text-[#7CC4FF]">
-                    {completedBatches.length.toLocaleString('th-TH')}
-                  </span>
-                </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={adminWorkspaceTab === 'batch_archive'}
+                      onClick={() => setAdminWorkspaceTab('batch_archive')}
+                      className={`hidden md:inline-flex px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors items-center gap-2 whitespace-nowrap ${
+                        adminWorkspaceTab === 'batch_archive'
+                          ? 'bg-white dark:bg-[#0F1B2E] text-[#0B4DA2] dark:text-[#66B2FF] border-[#0B4DA2] dark:border-[#3B8CE2]'
+                          : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#15253D]/60'
+                      }`}
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                      <span>ที่เก็บข้อมูลชุดงาน</span>
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-[#E8F1FC] dark:bg-[#152B4A] text-[#0B4DA2] dark:text-[#7CC4FF]">
+                        {completedBatches.length.toLocaleString('th-TH')}
+                      </span>
+                    </button>
+                  </>
+                )}
               </div>
 
               <span className="text-[11px] text-slate-500 dark:text-slate-400 pb-2 hidden xl:inline">
@@ -1974,6 +2032,8 @@ export default function App() {
                 totalCount={baseVisibleRecords.length}
                 isLoading={isLoading}
                 isAdmin={isAdmin}
+                canViewPhotosAndDrive={canViewPhotosAndDrive}
+                lockEditDeleteFromInstalling={lockEditDeleteFromInstalling}
                 searchQuery={searchQuery}
                 statusOptions={statusOptions}
                 filterContext={{
@@ -2003,7 +2063,7 @@ export default function App() {
               />
             )}
 
-            {adminWorkspaceTab === 'batch_builder' && (
+            {canViewBatches && adminWorkspaceTab === 'batch_builder' && (
               <AdminBatchWorkspace
                 mode="builder"
                 records={records}
@@ -2017,7 +2077,7 @@ export default function App() {
               />
             )}
 
-            {adminWorkspaceTab === 'batch_archive' && (
+            {canViewBatches && adminWorkspaceTab === 'batch_archive' && (
               <AdminBatchWorkspace
                 mode="archive"
                 records={records}
@@ -2066,6 +2126,9 @@ export default function App() {
           setIsAdmin(true);
           setAdminToken(session.token || null);
           setCanManageSheetConfig(Boolean(session.canManageSheetConfig));
+          setCanViewBatches(Boolean(session.canViewBatches));
+          setCanViewPhotosAndDrive(Boolean(session.canViewPhotosAndDrive));
+          setLockEditDeleteFromInstalling(Boolean(session.lockEditDeleteFromInstalling));
           showToast(
             `เข้าสู่ระบบ Admin (${session.username}) สำเร็จ เปิดใช้งานส่วนบันทึกคำขอใหม่และแก้ไขข้อมูลแล้ว`,
             'success'
@@ -2082,6 +2145,7 @@ export default function App() {
           isGoogleSigningIn={isGoogleSigningIn}
           serviceAccountConfigured={serviceAccountConfigured}
           serviceAccountEmail={serviceAccountEmail}
+          canViewPhotosAndDrive={canViewPhotosAndDrive}
           pendingOverlayCount={pendingOverlayCount}
           isFlushingPending={isFlushingPending}
           onFlushPending={() => flushPendingOverlayToSheet()}
@@ -2151,14 +2215,18 @@ export default function App() {
                       pendingConfirm.payload.longitude
                     ) || '-',
                 },
-                {
-                  label: 'รูปหน้าบ้าน',
-                  value: pendingConfirm.photoFile
-                    ? `แนบรูปใหม่ (${pendingConfirm.photoFile.name})`
-                    : pendingConfirm.payload.housePhotoUrl
-                    ? 'มีลิงก์รูปเดิม'
-                    : 'ไม่มี',
-                },
+                ...(canViewPhotosAndDrive
+                  ? [
+                      {
+                        label: 'รูปหน้าบ้าน',
+                        value: pendingConfirm.photoFile
+                          ? `แนบรูปใหม่ (${pendingConfirm.photoFile.name})`
+                          : pendingConfirm.payload.housePhotoUrl
+                          ? 'มีลิงก์รูปเดิม'
+                          : 'ไม่มี',
+                      },
+                    ]
+                  : []),
               ]
             : []
         }

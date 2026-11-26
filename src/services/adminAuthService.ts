@@ -2,6 +2,9 @@ export interface AdminSessionPayload {
   username: string;
   token: string;
   canManageSheetConfig: boolean;
+  canViewBatches: boolean;
+  canViewPhotosAndDrive: boolean;
+  lockEditDeleteFromInstalling: boolean;
 }
 
 export type AdminAuthResult =
@@ -13,6 +16,9 @@ interface StaticAdminAccountRecord {
   salt: string;
   hash: string;
   canManageSheetConfig: boolean;
+  canViewBatches: boolean;
+  canViewPhotosAndDrive: boolean;
+  lockEditDeleteFromInstalling: boolean;
 }
 
 const PBKDF2_ITERATIONS = 100_000;
@@ -24,48 +30,81 @@ const STATIC_ADMIN_ACCOUNTS: StaticAdminAccountRecord[] = [
     salt: '383ef2f27b4ce5e0ad025deacac631b9',
     hash: '7f91a10222aaee80da132fdcb1dd24d73abaeee400d25c14c17ea9d6f84390e0',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '13367',
     salt: 'bdccfe4a8f3e080be65afaa8becfe407',
     hash: '8ea0e0e1088099af5776a2a4b0243df389efacd13b5390329e51e0fd5b84da60',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '16479',
     salt: 'fbfeb54d62a65fcd3567e4314b281ddf',
     hash: '67d63312aeefb6e043201ce6d8d83ae276d8fe4dec10515e66a7e23d7aee04a4',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '15563',
     salt: '4c92a9380e3b6c1bd2eb4e56424d7bc6',
     hash: '59926b3a245deaca733b4b8d0846d17209a90090560c0c68ee27267b7db4d07f',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '14356',
     salt: '874136ebbf818e096f29843972fc074c',
     hash: 'e09b422b17c9593172a4b063bc1bfb37a35ddbdf0279cc9a02d72c47f0c94a42',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '15687',
     salt: '2b3de1ceeefcfcd248adc69037e36f50',
     hash: 'c2cb2ee79cda3f78a43bc139c5ab0f5b270163c01858389f8c235b3f1a902e8e',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '17191',
     salt: '6a5998c47e89a973ac457d00f256b0e2',
     hash: 'ad79a7cade4a309d974cd78f07596ba8bd710a0a2d3e924f398ab259de1f9667',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
   },
   {
     u: '15676',
     salt: 'd3a8174bd5bfae3ab9ad627902923cef',
     hash: '47067c3bb9721657d456a992d4dd909bfe6d6edde9aba7754a5a5bb93d335499',
     canManageSheetConfig: true,
+    canViewBatches: true,
+    canViewPhotosAndDrive: true,
+    lockEditDeleteFromInstalling: false,
+  },
+  {
+    u: '5512018',
+    salt: 'e40442ed65c64aa3317cc83d63038897',
+    hash: '4d5b5cee016a4f879011021a0c0f7113d1d590774c5946697a2640bcebe3d29b',
+    canManageSheetConfig: true,
+    canViewBatches: false,
+    canViewPhotosAndDrive: false,
+    lockEditDeleteFromInstalling: true,
   },
 ];
 
@@ -276,6 +315,9 @@ async function verifyStaticFallback(username: string, password: string): Promise
       username: account.u,
       token: '',
       canManageSheetConfig: account.canManageSheetConfig,
+      canViewBatches: account.canViewBatches,
+      canViewPhotosAndDrive: account.canViewPhotosAndDrive,
+      lockEditDeleteFromInstalling: account.lockEditDeleteFromInstalling,
     },
   };
 }
@@ -309,12 +351,26 @@ export async function authenticateAdmin(
     }
 
     if (res.ok && parsed?.ok === true && typeof parsed?.token === 'string' && parsed.token) {
+      const uname = typeof parsed.username === 'string' ? parsed.username : u;
+      const isLimited5512018 = uname === '5512018';
       return {
         ok: true,
         session: {
-          username: typeof parsed.username === 'string' ? parsed.username : u,
+          username: uname,
           token: parsed.token,
           canManageSheetConfig: Boolean(parsed.canManageSheetConfig),
+          canViewBatches:
+            typeof parsed.canViewBatches === 'boolean'
+              ? parsed.canViewBatches
+              : !isLimited5512018,
+          canViewPhotosAndDrive:
+            typeof parsed.canViewPhotosAndDrive === 'boolean'
+              ? parsed.canViewPhotosAndDrive
+              : !isLimited5512018,
+          lockEditDeleteFromInstalling:
+            typeof parsed.lockEditDeleteFromInstalling === 'boolean'
+              ? parsed.lockEditDeleteFromInstalling
+              : isLimited5512018,
         },
       };
     }

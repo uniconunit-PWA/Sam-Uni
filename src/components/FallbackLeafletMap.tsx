@@ -15,6 +15,7 @@ import {
   RouteSummary,
   getNoPipeWarningSvgMarkup,
   getStatusMeta,
+  isLockedFromInstallingStatus,
   isNoPipeCancelledStatus,
   parseLatLngPair,
 } from '../types/meter';
@@ -26,6 +27,8 @@ const DEFAULT_CENTER: [number, number] = [16.0633, 99.8605];
 interface FallbackLeafletMapProps {
   records: MeterRequest[];
   isAdmin: boolean;
+  canViewPhotosAndDrive?: boolean;
+  lockEditDeleteFromInstalling?: boolean;
   isDark?: boolean;
   layerType: MapLayerType;
   onChangeLayerType?: (layer: MapLayerType) => void;
@@ -65,6 +68,8 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
   records,
   isAdmin,
+  canViewPhotosAndDrive = true,
+  lockEditDeleteFromInstalling = false,
   isDark = false,
   layerType,
   onChangeLayerType,
@@ -590,15 +595,17 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
                   {getStatusMeta(selectedPopupRecord.status).label}
                 </span>
               </p>
-              <HousePhotoPreview
-                url={selectedPopupRecord.housePhotoUrl}
-                alt={
-                  selectedPopupRecord.fullName
-                    ? `รูปหน้าบ้าน ${selectedPopupRecord.fullName}`
-                    : 'รูปหน้าบ้าน'
-                }
-                heightClass="h-24 sm:h-28"
-              />
+              {canViewPhotosAndDrive && (
+                <HousePhotoPreview
+                  url={selectedPopupRecord.housePhotoUrl}
+                  alt={
+                    selectedPopupRecord.fullName
+                      ? `รูปหน้าบ้าน ${selectedPopupRecord.fullName}`
+                      : 'รูปหน้าบ้าน'
+                  }
+                  heightClass="h-24 sm:h-28"
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
@@ -632,16 +639,20 @@ export const FallbackLeafletMap: React.FC<FallbackLeafletMapProps> = ({
                 <ExternalLink className="w-3 h-3" />
               </a>
 
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => onEditRecord(selectedPopupRecord)}
-                  className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 inline-flex items-center gap-1"
-                >
-                  <PenLine className="w-3 h-3" />
-                  <span>แก้ไขคำขอ</span>
-                </button>
-              )}
+              {isAdmin &&
+                !(
+                  lockEditDeleteFromInstalling &&
+                  isLockedFromInstallingStatus(selectedPopupRecord.status)
+                ) && (
+                  <button
+                    type="button"
+                    onClick={() => onEditRecord(selectedPopupRecord)}
+                    className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 inline-flex items-center gap-1"
+                  >
+                    <PenLine className="w-3 h-3" />
+                    <span>แก้ไขคำขอ</span>
+                  </button>
+                )}
             </div>
           </div>
         )}
