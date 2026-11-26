@@ -283,19 +283,19 @@ const ADMIN_ACCOUNTS: AdminAccountRecord[] = [
     u: 'Admin',
     salt: '0282a822f630c683d329a1c39cc86486',
     hash: '0dd3b135b43e5e1135e1aadab02a4ca95261fe7ba9e176f06ac251ae843a66169e71e85bf0d6f8de08f5c552317242486366777a050d4bd8fa46ba7ca9b1438e',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '13367',
     salt: '23c523b8c0976685c95b1eeaf32628fa',
     hash: '706409d1c1da4f3a678d8351a1bb3bd4211168b00d8cc79d7cb69753ae720e42532f638d1fa5be34ab2d1e47516f26cd01243411ba12dfb2f6e8f4bf3e98ee54',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '16479',
     salt: '2abc72cb1516e1d2884564fce2dc0a8e',
     hash: '7efaaf132df64415ecaf1b05c77343992bcf5c732800a8dc17d29a71e71f6ec243fbc2b6ec723df9e9c66418760195f43ae80a76473f223ecd40b6f8e6f6d9f0',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '15563',
@@ -307,25 +307,25 @@ const ADMIN_ACCOUNTS: AdminAccountRecord[] = [
     u: '14356',
     salt: '0bb6c99d461869ea2278059217e95185',
     hash: 'fa08c5827f1a38fadf43eecb711d853d970e1572fb31e7c9704b9a1724eaf0a1634354d0e45a05eee3840f58f8b42d8ae811a81f75a258c376055e798c8a83f6',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '15687',
     salt: '45025c66ee18bb6c1637804e017c3079',
     hash: 'c68dd90083a96a519284db03d1d1f471feab552610e10a0b720c24e93177e4985dd449107d1e4dfc7eeb18194a1a12fb26a8dfde457c87047d34c3ceb0dfb7ca',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '17191',
     salt: 'fcf30bb9d4fc29cdf89846c0aced760d',
     hash: '25c74b08c12101f97fb0e0677e05420da5bc7a71f7efe322cacb722046ed1348a96f4aff279a24f991debd3493dc4e8d838ce94929786d494ec394a0a241eca9',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '15676',
     salt: '282253cbdeff37c337bd4184bf4ec150',
     hash: 'cf91b5d1ca58aacb1fdc4f9492de8eab8dc7d4ad0963fd1dc91f1069febfda34eff5105aeb8f46532bf9b671807e4f7e3d2165227d55f330d603f6f8dfc4fcc9',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
 ];
 
@@ -411,7 +411,7 @@ function verifyAdminSession(
     }
     return {
       username: decoded.u,
-      canManageSheetConfig: decoded.u === '15563' && Boolean(decoded.master),
+      canManageSheetConfig: Boolean(decoded.master),
     };
   } catch {
     return null;
@@ -464,7 +464,7 @@ async function startServer() {
       return;
     }
 
-    const canManageSheetConfig = account.u === '15563' && account.canManageSheetConfig;
+    const canManageSheetConfig = account.canManageSheetConfig;
     const token = issueAdminToken(account.u, canManageSheetConfig);
     res.json({
       ok: true,
@@ -514,10 +514,10 @@ async function startServer() {
       });
       return;
     }
-    if (!session.canManageSheetConfig || session.username !== '15563') {
+    if (!session.canManageSheetConfig) {
       res.status(403).json({
         ok: false,
-        message: 'เฉพาะผู้ใช้ 15563 เท่านั้นที่สามารถแก้ไขการตั้งค่าชีทได้',
+        message: 'บัญชีนี้ไม่มีสิทธิ์แก้ไขการตั้งค่าชีท',
       });
       return;
     }

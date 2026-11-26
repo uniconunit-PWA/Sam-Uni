@@ -23,19 +23,19 @@ const STATIC_ADMIN_ACCOUNTS: StaticAdminAccountRecord[] = [
     u: 'Admin',
     salt: '383ef2f27b4ce5e0ad025deacac631b9',
     hash: '7f91a10222aaee80da132fdcb1dd24d73abaeee400d25c14c17ea9d6f84390e0',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '13367',
     salt: 'bdccfe4a8f3e080be65afaa8becfe407',
     hash: '8ea0e0e1088099af5776a2a4b0243df389efacd13b5390329e51e0fd5b84da60',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '16479',
     salt: 'fbfeb54d62a65fcd3567e4314b281ddf',
     hash: '67d63312aeefb6e043201ce6d8d83ae276d8fe4dec10515e66a7e23d7aee04a4',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '15563',
@@ -47,25 +47,25 @@ const STATIC_ADMIN_ACCOUNTS: StaticAdminAccountRecord[] = [
     u: '14356',
     salt: '874136ebbf818e096f29843972fc074c',
     hash: 'e09b422b17c9593172a4b063bc1bfb37a35ddbdf0279cc9a02d72c47f0c94a42',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '15687',
     salt: '2b3de1ceeefcfcd248adc69037e36f50',
     hash: 'c2cb2ee79cda3f78a43bc139c5ab0f5b270163c01858389f8c235b3f1a902e8e',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '17191',
     salt: '6a5998c47e89a973ac457d00f256b0e2',
     hash: 'ad79a7cade4a309d974cd78f07596ba8bd710a0a2d3e924f398ab259de1f9667',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
   {
     u: '15676',
     salt: 'd3a8174bd5bfae3ab9ad627902923cef',
     hash: '47067c3bb9721657d456a992d4dd909bfe6d6edde9aba7754a5a5bb93d335499',
-    canManageSheetConfig: false,
+    canManageSheetConfig: true,
   },
 ];
 

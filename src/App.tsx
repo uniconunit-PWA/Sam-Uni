@@ -274,7 +274,7 @@ export default function App() {
           if (isAdmin && canManageSheetConfig) {
             setSettingsModalOpen(true);
           } else if (isAdmin) {
-            showToast('เฉพาะผู้ใช้ 15563 เท่านั้นที่สามารถเปิดหน้าตั้งค่าชีทได้', 'warning');
+            showToast('บัญชีนี้ไม่มีสิทธิ์เปิดหน้าตั้งค่าชีท', 'warning');
           } else {
             setAuthModalOpen(true);
             showToast('กรุณาเข้าสู่ระบบ Admin เพื่อเปิดหน้าตั้งค่าชีท', 'info');

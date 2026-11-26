@@ -2171,7 +2171,7 @@
       if (matched) {
         isAdmin = true;
         adminUsername = u;
-        const isMaster = u === '15563';
+        const isMaster = true;
         document.getElementById('sheet-link-group')?.classList.toggle('hidden', !isMaster);
         document.getElementById('f-photo-drive-link')?.classList.toggle('hidden', !isMaster);
         document.getElementById('login-user').value = '';
